@@ -17,7 +17,10 @@ from app.llm_service import (
     generate_youtube_summary,
     get_ollama_models,
 )
-from app.transcription_service import transcribe_local_video
+from app.transcription_service import (
+    extract_video_frames_base64,
+    transcribe_local_video,
+)
 from app.youtube_service import (
     close_youtube_client,
     extract_video_id,
@@ -163,12 +166,15 @@ async def summarize_video(req: SummarizeRequest) -> Dict[str, Any]:
         metadata = await get_video_metadata(video_id)
 
         transcript_text = transcript_result.get("transcript_text") or ""
+        video_frames = transcript_result.get("video_frames") or []
         lang_label = transcript_result.get("language_name") or (
-            "No Captions" if not transcript_text else "Unknown"
+            f"🎬 Visual Video ({len(video_frames)} frames)"
+            if video_frames and not transcript_text
+            else ("No Captions" if not transcript_text else "Unknown")
         )
         seg_count = transcript_result.get("segment_count", 0)
 
-        # Call LLM Service (Ollama / Gemini) — works with or without a transcript
+        # Call LLM Service (Ollama / Gemini) — works with transcript, audio, or visual video frames
         summary_result = await generate_youtube_summary(
             video_metadata=metadata,
             transcript_text=transcript_text,
@@ -178,6 +184,7 @@ async def summarize_video(req: SummarizeRequest) -> Dict[str, Any]:
             thinking_level=req.thinking_level or "high",
             lang=req.lang or "bi",
             song_mode=req.song_mode,
+            video_frames=video_frames if video_frames else None,
         )
 
         if not summary_result.get("success"):
@@ -204,7 +211,11 @@ async def summarize_video(req: SummarizeRequest) -> Dict[str, Any]:
                 "full_transcript": (
                     transcript_text
                     if transcript_text
-                    else "[No captions/transcript available for this video — summarized directly from video & metadata]"
+                    else (
+                        f"[No spoken audio or captions — summarized by visually analyzing {len(video_frames)} keyframes from the video]"
+                        if video_frames
+                        else "[No captions/transcript available for this video — summarized directly from video & metadata]"
+                    )
                 ),
             },
         }
@@ -259,11 +270,21 @@ async def summarize_uploaded_file(
 
         transcript_text = transcribe_res.get("transcript_text") or ""
         seg_count = transcribe_res.get("segment_count", 0)
-        lang_label = (
-            transcribe_res.get("language_name", "English")
-            if transcribe_res.get("success")
-            else "No Speech Track"
-        )
+        video_frames = []
+
+        # If no spoken audio was transcribed from the uploaded file, extract visual keyframes
+        if not transcript_text.strip():
+            video_frames = await asyncio.to_thread(
+                extract_video_frames_base64, safe_temp_path, 8
+            )
+
+        if transcribe_res.get("success") and transcript_text.strip():
+            lang_label = transcribe_res.get("language_name", "English")
+        elif video_frames:
+            lang_label = f"🎬 Visual Video ({len(video_frames)} frames)"
+            seg_count = len(video_frames)
+        else:
+            lang_label = "No Speech Track"
 
         metadata = {
             "title": f"{'Local Song' if song_mode else 'Local Media'}: {raw_filename}",
@@ -272,7 +293,7 @@ async def summarize_uploaded_file(
             "url": raw_filename,
         }
 
-        # Generate summary via Ollama / Gemini (even if transcript_text is empty)
+        # Generate summary via Ollama / Gemini (using transcript or extracted visual video frames)
         summary_result = await generate_youtube_summary(
             video_metadata=metadata,
             transcript_text=transcript_text,
@@ -282,6 +303,7 @@ async def summarize_uploaded_file(
             thinking_level=thinking_level or "high",
             lang=lang or "bi",
             song_mode=song_mode,
+            video_frames=video_frames if video_frames else None,
         )
 
         if not summary_result.get("success"):
@@ -308,7 +330,11 @@ async def summarize_uploaded_file(
                 "full_transcript": (
                     transcript_text
                     if transcript_text
-                    else "[No spoken audio transcribed from this video file — summarized using video context & metadata]"
+                    else (
+                        f"[No spoken audio — summarized by visually analyzing {len(video_frames)} keyframes extracted from the video file]"
+                        if video_frames
+                        else "[No spoken audio transcribed from this video file — summarized using video context & metadata]"
+                    )
                 ),
             },
         }

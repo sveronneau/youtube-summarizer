@@ -11,7 +11,10 @@ from typing import Any, Dict, List, Optional
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from app.transcription_service import transcribe_local_video
+from app.transcription_service import (
+    extract_video_frames_base64,
+    transcribe_local_video,
+)
 
 # Bounded LRU caches to avoid redundant network calls between preview and summarization
 _MAX_CACHE_SIZE = 128
@@ -236,25 +239,29 @@ def _extract_youtube_song_audio_transcript(
     description_fallback: str = "",
     title: str = "",
     artist: str = "",
+    song_mode: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
-    Second-pass lyrics extraction for YouTube music videos:
-    1. Checks LRCLIB for exact, typo-free studio lyrics if title/artist match.
-    2. Otherwise downloads the lightweight audio stream via yt-dlp into a temporary folder
-       and runs faster-whisper in song_mode.
+    Audio & visual media fallback for YouTube videos without captions:
+    1. If song_mode=True, checks LRCLIB for exact, typo-free studio lyrics first.
+    2. Downloads a lightweight video/audio stream via yt-dlp into a temporary folder
+       and runs faster-whisper (in song_mode or standard speech mode).
+    3. If the video has no spoken speech or lyrics at all, extracts visual keyframes
+       so multimodal LLMs (Ollama Gemma 4 / Gemini) can visually read the video.
     """
-    lrclib_res = _fetch_lrclib_lyrics(title, artist, description_fallback)
-    if lrclib_res:
-        return lrclib_res
+    if song_mode:
+        lrclib_res = _fetch_lrclib_lyrics(title, artist, description_fallback)
+        if lrclib_res:
+            return lrclib_res
 
     temp_dir = None
     try:
         import yt_dlp
 
-        temp_dir = tempfile.mkdtemp(prefix="yt_song_")
-        out_template = os.path.join(temp_dir, "audio.%(ext)s")
-        audio_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best[filesize<100M]",
+        temp_dir = tempfile.mkdtemp(prefix="yt_media_")
+        out_template = os.path.join(temp_dir, "media.%(ext)s")
+        media_opts = {
+            "format": "best[ext=mp4][height<=360]/best[ext=mp4][height<=480]/bestaudio[ext=m4a]/bestaudio/best[filesize<100M]",
             "outtmpl": out_template,
             "quiet": True,
             "no_warnings": True,
@@ -262,7 +269,7 @@ def _extract_youtube_song_audio_transcript(
             "logger": _QuietYtdlpLogger(),
         }
         url = f"https://www.youtube.com/watch?v={video_id}"
-        with yt_dlp.YoutubeDL(audio_opts) as ydl:
+        with yt_dlp.YoutubeDL(media_opts) as ydl:
             ydl.download([url])
 
         downloaded_files = [
@@ -273,25 +280,52 @@ def _extract_youtube_song_audio_transcript(
         if not downloaded_files:
             return None
 
-        audio_path = downloaded_files[0]
-        whisper_res = transcribe_local_video(audio_path, song_mode=True)
+        media_path = downloaded_files[0]
+        whisper_res = transcribe_local_video(media_path, song_mode=song_mode)
         if whisper_res.get("success") and whisper_res.get("transcript_text"):
             lyrics_text = whisper_res["transcript_text"]
+            header = (
+                "### Extracted Song Lyrics (2nd-Pass Audio Transcription):"
+                if song_mode
+                else "### Extracted Audio Transcript (faster-whisper):"
+            )
             if description_fallback:
                 lyrics_text = (
-                    f"### Extracted Song Lyrics (2nd-Pass Audio Transcription):\n{lyrics_text}\n\n"
+                    f"{header}\n{lyrics_text}\n\n"
                     f"### Video Description / Credits:\n{description_fallback}"
                 )
+            lang_code = whisper_res.get("language_code", "en")
+            lang_name = whisper_res.get("language_name") or (
+                f"{lang_code.upper()} (🎵 2nd-Pass Lyrics)"
+                if song_mode
+                else f"{lang_code.upper()} (🎙️ Audio Whisper)"
+            )
             return {
                 "success": True,
                 "transcript_text": lyrics_text,
                 "formatted_segments": whisper_res.get("formatted_segments", []),
-                "language_code": whisper_res.get("language_code", "en"),
-                "language_name": whisper_res.get(
-                    "language_name", "2nd-Pass Song Lyrics"
-                ),
+                "language_code": lang_code,
+                "language_name": lang_name,
                 "segment_count": whisper_res.get("segment_count", 0),
-                "pass_used": 2,
+                "pass_used": whisper_res.get("pass_used", 1),
+            }
+
+        # No spoken speech/lyrics found -> extract visual keyframes from the video
+        frames_b64 = extract_video_frames_base64(media_path, max_frames=8)
+        if frames_b64:
+            desc_text = (
+                f"Video Description:\n{description_fallback}"
+                if description_fallback
+                else ""
+            )
+            return {
+                "success": True,
+                "transcript_text": desc_text,
+                "formatted_segments": [],
+                "language_code": "visual",
+                "language_name": f"🎬 Visual Video ({len(frames_b64)} frames)",
+                "segment_count": len(frames_b64),
+                "video_frames": frames_b64,
             }
     except Exception:
         pass
@@ -488,29 +522,29 @@ def get_video_transcript(
                                             )
                                             return result
 
-                # Attempt 2B: When Song Mode is checked and captions are missing or '[Music]' only,
-                # check LRCLIB official studio lyrics first, then fall back to 2nd-pass audio transcription
-                if song_mode:
-                    song_title = (
-                        info.get("track") or info.get("title") or ""
-                    ).strip()
-                    song_artist = (
-                        info.get("artist")
-                        or info.get("uploader")
-                        or info.get("channel")
-                        or ""
-                    ).strip()
-                    song_audio_res = _extract_youtube_song_audio_transcript(
-                        video_id,
-                        description_fallback=description_text,
-                        title=song_title,
-                        artist=song_artist,
-                    )
-                    if song_audio_res:
-                        _cache_set(_transcript_cache, cache_key, song_audio_res)
-                        return song_audio_res
+                # Attempt 2B: When captions are missing (or '[Music]' only in song_mode),
+                # fall back to audio transcription (faster-whisper) and visual frame extraction
+                song_title = (
+                    info.get("track") or info.get("title") or ""
+                ).strip()
+                song_artist = (
+                    info.get("artist")
+                    or info.get("uploader")
+                    or info.get("channel")
+                    or ""
+                ).strip()
+                song_audio_res = _extract_youtube_song_audio_transcript(
+                    video_id,
+                    description_fallback=description_text,
+                    title=song_title,
+                    artist=song_artist,
+                    song_mode=song_mode,
+                )
+                if song_audio_res:
+                    _cache_set(_transcript_cache, cache_key, song_audio_res)
+                    return song_audio_res
 
-                # If video has no subtitles, use description and chapters if present
+                # If video has no subtitles or audio/frames, use description and chapters if present
                 chapters = info.get("chapters") or []
                 fallback_parts = []
                 if description_text:
@@ -540,7 +574,7 @@ def get_video_transcript(
     # If yt-dlp metadata extraction had an issue in song_mode, still try direct 2nd-pass audio download
     if song_mode:
         song_audio_res = _extract_youtube_song_audio_transcript(
-            video_id, description_fallback=description_text
+            video_id, description_fallback=description_text, song_mode=song_mode
         )
         if song_audio_res:
             _cache_set(_transcript_cache, cache_key, song_audio_res)

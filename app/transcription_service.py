@@ -1,9 +1,11 @@
-"""Local video audio transcription service powered by faster-whisper."""
+"""Local video audio transcription and visual frame extraction service."""
 
+import base64
+import io
 import logging
 import os
 import threading
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -181,3 +183,71 @@ def transcribe_local_video(
 
     except Exception as e:
         return {"success": False, "error": f"Transcription error: {str(e)}"}
+
+
+def extract_video_frames_base64(
+    file_path: str, max_frames: int = 8
+) -> List[str]:
+    """
+    Extract up to `max_frames` evenly spaced keyframes from a local video file
+    as base64-encoded JPEGs so multimodal LLMs (Ollama Gemma 4 / Gemini) can
+    visually read videos that have no spoken transcript.
+    """
+    if not file_path or not os.path.exists(file_path):
+        return []
+
+    _ensure_pyav_compat()
+    frames_b64: List[str] = []
+    try:
+        import av
+        from PIL import Image
+
+        with av.open(file_path, mode="r") as container:
+            if not container.streams.video:
+                return []
+
+            video_stream = container.streams.video[0]
+            video_stream.codec_context.skip_frame = "NONKEY"
+
+            pil_frames: List[Image.Image] = []
+            for frame in container.decode(video_stream):
+                pil_frames.append(frame.to_image())
+                if len(pil_frames) >= max_frames * 6:
+                    break
+
+            # If keyframe-only decoding returned nothing (e.g. short clip), decode normal frames
+            if not pil_frames:
+                container.seek(0)
+                video_stream.codec_context.skip_frame = "DEFAULT"
+                for idx, frame in enumerate(container.decode(video_stream)):
+                    if idx % 15 == 0:
+                        pil_frames.append(frame.to_image())
+                    if len(pil_frames) >= max_frames * 3:
+                        break
+
+            if not pil_frames:
+                return []
+
+            # Evenly sample up to max_frames across the collected frames
+            total = len(pil_frames)
+            if total <= max_frames:
+                selected = pil_frames
+            else:
+                indices = [
+                    int(round(i * (total - 1) / (max_frames - 1)))
+                    for i in range(max_frames)
+                ]
+                selected = [pil_frames[idx] for idx in indices]
+
+            for img in selected:
+                rgb_img = img.convert("RGB")
+                rgb_img.thumbnail((768, 768))
+                buf = io.BytesIO()
+                rgb_img.save(buf, format="JPEG", quality=80)
+                frames_b64.append(
+                    base64.b64encode(buf.getvalue()).decode("ascii")
+                )
+    except Exception as e:
+        logger.warning("Could not extract video frames from %s: %s", file_path, e)
+
+    return frames_b64
