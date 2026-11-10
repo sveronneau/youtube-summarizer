@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225" width="400" height="225">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A73E8"/>
+      <stop offset="50%" stop-color="#0F9D58"/>
+      <stop offset="100%" stop-color="#0D652D"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="225" rx="16" fill="url(#bg)"/>
+  <circle cx="200" cy="112" r="42" fill="rgba(255,255,255,0.2)"/>
+  <circle cx="200" cy="112" r="32" fill="#FFFFFF"/>
+  <polygon points="192,98 214,112 192,126" fill="#1A73E8"/>
+  <text x="200" y="175" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" text-anchor="middle" letter-spacing="0.5">DevFest Sherbrooke • Video</text>
+</svg>

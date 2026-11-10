@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevFest Sherbrooke • Sommaire Vidéo IA | AI Video Summarizer</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Marked.js & DOMPurify for safe Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css?v=2.3">
+</head>
+
+<body>
+
+    <!-- Eastern Townships Mountains & Pine Horizon SVG Art -->
+    <div class="townships-backdrop" aria-hidden="true">
+        <svg class="mountain-silhouette" viewBox="0 0 1440 220" fill="none" xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="none">
+            <!-- Distant Mont Orford Ridge -->
+            <path d="M0,130 Q180,60 360,110 T720,70 T1080,100 T1440,80 L1440,220 L0,220 Z"
+                fill="rgba(15, 157, 88, 0.07)"></path>
+            <!-- Mont Bellevue Mid Ridge -->
+            <path d="M0,150 Q240,90 480,140 T960,105 T1440,130 L1440,220 L0,220 Z" fill="rgba(26, 115, 232, 0.08)">
+            </path>
+            <!-- Foreground Pine Line -->
+            <path d="M0,185 Q120,165 240,180 T480,165 T720,180 T960,165 T1200,180 T1440,170 L1440,220 L0,220 Z"
+                fill="rgba(11, 107, 58, 0.12)"></path>
+        </svg>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Language Switcher Bar -->
+        <div class="lang-bar-container">
+            <div class="lang-pill-group">
+                <span class="lang-label"><i class="fa-solid fa-globe"></i> <span data-i18n="langLabel">Langue /
+                        Language:</span></span>
+                <button type="button" class="lang-btn" id="lang-fr" onclick="setLanguage('fr')">FR</button>
+                <button type="button" class="lang-btn active" id="lang-bi" onclick="setLanguage('bi')">FR / EN</button>
+                <button type="button" class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
+            </div>
+        </div>
+
+        <!-- DevFest Sherbrooke Header -->
+        <header class="devfest-header">
+            <div class="header-badges-row">
+                <div class="devfest-badge">
+                    <span class="pine-icon">🌲</span>
+                    <span class="badge-title">DevFest Sherbrooke</span>
+                    <span class="badge-sep">•</span>
+                    <span class="badge-sub">GDG Cloud Sherbrooke</span>
+                    <span class="mountain-icon">⛰️</span>
+                </div>
+            </div>
+
+            <h1 class="main-title">
+                <span data-i18n="titlePrefix">Sommaire Vidéo</span>
+                <span class="accent-text">DevFest</span>
+            </h1>
+            <p class="subtitle" id="header-subtitle" data-i18n="subtitle">
+                L'intelligence artificielle au cœur des Cantons-de-l'Est • AI Video Summarizer
+            </p>
+        </header>
+
+        <!-- Main Form Section -->
+        <main class="main-card">
+
+            <!-- Source Mode Selector Tabs -->
+            <div class="source-tabs">
+                <button type="button" class="tab-btn active" id="tab-yt" onclick="switchSourceMode('youtube')">
+                    <i class="fa-brands fa-youtube icon-tab-yt"></i>
+                    <span data-i18n="tabYoutube">Lien YouTube / YouTube Link</span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-file" onclick="switchSourceMode('file')">
+                    <i class="fa-solid fa-file-video icon-tab-file"></i>
+                    <span data-i18n="tabUpload">Fichier Vidéo ou Audio / Upload Media</span>
+                </button>
+            </div>
+
+            <form id="summarize-form" onsubmit="event.preventDefault(); handleSummarize();">
+
+                <!-- 1A. YouTube URL Input Box -->
+                <div id="yt-input-container" class="form-group">
+                    <label for="youtube-url" class="form-label">
+                        <i class="fa-brands fa-youtube icon-yt"></i>
+                        <span data-i18n="labelYoutube">Lien de la vidéo YouTube / YouTube Video Link</span>
+                    </label>
+                    <div class="url-input-wrapper">
+                        <i class="fa-solid fa-link input-icon"></i>
+                        <input type="url" id="youtube-url" class="form-control"
+                            placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+                        <button type="button" class="btn-paste" onclick="pasteFromClipboard()">
+                            <i class="fa-regular fa-paste"></i> <span data-i18n="btnPaste">Coller / Paste</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 1B. Local Video or Audio File Upload Input Box -->
+                <div id="file-input-container" class="form-group hidden">
+                    <label for="video-file-input" class="form-label">
+                        <i class="fa-solid fa-cloud-arrow-up icon-upload"></i>
+                        <span data-i18n="labelUpload">Fichier vidéo ou audio local / Local Video or Audio File</span>
+                    </label>
+                    <div class="file-drop-zone" id="file-drop-zone"
+                        onclick="document.getElementById('video-file-input').click()">
+                        <i class="fa-solid fa-file-video file-drop-icon"></i>
+                        <div class="file-drop-text" id="drop-text-main" data-i18n="dropTextMain">
+                            <strong>Cliquez pour parcourir</strong> ou glissez-déposez un fichier • <strong>Click to browse</strong> or drag &amp; drop
+                        </div>
+                        <span class="file-drop-sub" data-i18n="dropTextSub">Formats acceptés / Supported: .mp4, .mov, .mkv, .webm, .mp3, .wav, .m4a</span>
+                        <input type="file" id="video-file-input"
+                            accept="video/*,audio/*,.mp4,.mov,.mkv,.webm,.mp3,.wav,.m4a,.flac,.ogg" hidden
+                            onchange="handleFileSelected(this.files)">
+                    </div>
+
+                    <!-- Local Media File Info & Local Video Player -->
+                    <div id="local-file-card" class="preview-card hidden">
+                        <div class="preview-header-bar">
+                            <div class="preview-info-left">
+                                <h4 id="local-filename">MyVideo.mp4</h4>
+                                <p id="local-filesize"><i class="fa-solid fa-hard-drive"></i> 0 MB</p>
+                            </div>
+                            <span class="status-tag tag-ready"><i class="fa-solid fa-circle-check"></i> <span
+                                    data-i18n="tagMp4Loaded">Média Prêt / Media Ready</span></span>
+                        </div>
+                        <div class="player-wrapper">
+                            <video id="local-video-player" controls
+                                style="width:100%; height:100%; background:#000; border-radius: var(--radius-sm);"></video>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live YouTube Preview Card & Embedded Player -->
+                <div id="video-preview-card" class="preview-card hidden">
+                    <div class="preview-header-bar">
+                        <div class="preview-info-left preview-info-with-thumb">
+                            <img id="preview-thumb" src="/static/video-placeholder.png" alt="Thumbnail"
+                                class="preview-thumb-img" referrerpolicy="no-referrer">
+                            <div>
+                                <h4 id="preview-title">Video Title</h4>
+                                <p id="preview-author"><i class="fa-solid fa-user-circle"></i> Channel Name</p>
+                            </div>
+                        </div>
+                        <span class="status-tag tag-ready"><i class="fa-solid fa-circle-check"></i> <span
+                                data-i18n="tagVideoReady">Vidéo Prête / Video Ready</span></span>
+                    </div>
+
+                    <!-- Embedded Video Player -->
+                    <div id="player-wrapper" class="player-wrapper">
+                        <iframe id="yt-embed-player" src="" title="YouTube Video Player" frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                </div>
+
+                <!-- 1C. Song / Lyrics Second-Pass Extraction Checkbox -->
+                <div class="form-group">
+                    <label for="song-mode-checkbox" class="song-mode-box" id="song-mode-card">
+                        <input type="checkbox" id="song-mode-checkbox" class="song-mode-input"
+                            onchange="document.getElementById('song-mode-card').classList.toggle('active', this.checked)">
+                        <div class="song-mode-icon">🎵</div>
+                        <div class="song-mode-text">
+                            <div class="song-mode-title">
+                                <span data-i18n="labelSongMode">Mode Chanson (2e passe paroles) / Song Mode (2nd-pass lyrics)</span>
+                                <span class="model-tag tag-song" data-i18n="tagSongPass">Paroles / Lyrics</span>
+                            </div>
+                            <p class="song-mode-desc" data-i18n="descSongMode">
+                                Cochez si le lien ou le fichier est une chanson pour extraire les paroles / Check if the input is a song to extract full lyrics.
+                            </p>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- 2. AI Model Selector -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fa-solid fa-brain icon-ai"></i>
+                        <span data-i18n="labelModelSelect">Sélectionnez le modèle d'IA / Select AI Model</span>
+                    </label>
+                    <div class="model-cards-grid model-cards-grid-3">
+                        <label class="model-card active" id="card-gemma4" onclick="selectModel('gemma4')">
+                            <input type="radio" name="model" value="gemma4" checked hidden>
+                            <div class="model-card-header">
+                                <span class="model-icon">🦙</span>
+                                <div>
+                                    <span class="model-title">Ollama Gemma 4</span>
+                                    <span class="model-tag tag-ollama" data-i18n="tagLocalServer">Local • Cantons</span>
+                                </div>
+                            </div>
+                            <p class="model-desc" data-i18n="descGemma4">Modèle local privé via Ollama (gemma4:12b /
+                                latest).</p>
+                        </label>
+
+                        <label class="model-card" id="card-flash" onclick="selectModel('flash')">
+                            <input type="radio" name="model" value="flash" hidden>
+                            <div class="model-card-header">
+                                <span class="model-icon">⚡</span>
+                                <div>
+                                    <span class="model-title">Gemini Flash</span>
+                                    <span class="model-tag tag-flash">Gemini 3.8</span>
+                                </div>
+                            </div>
+                            <p class="model-desc" data-i18n="descFlash">Exécution ultra-rapide et synthèse équilibrée.
+                            </p>
+                        </label>
+
+                        <label class="model-card" id="card-argon" onclick="selectModel('argon')">
+                            <input type="radio" name="model" value="argon" hidden>
+                            <div class="model-card-header">
+                                <span class="model-icon">🧠</span>
+                                <div>
+                                    <span class="model-title">Gemini 4 Argon</span>
+                                    <span class="model-tag tag-pro">Gemini 4 Argon</span>
+                                </div>
+                            </div>
+                            <p class="model-desc" data-i18n="descArgon">Raisonnement approfondi et analyse complexe.</p>
+                        </label>
+                    </div>
+
+                    <!-- Dynamic Local Ollama Model Variant Selector -->
+                    <div id="ollama-variant-container" class="ollama-variant-box">
+                        <div class="variant-header">
+                            <span class="variant-label">
+                                <i class="fa-solid fa-microchip icon-chip"></i>
+                                <span data-i18n="labelLocalVariant">Variante locale Gemma 4 / Local Variant:</span>
+                            </span>
+                            <button type="button" class="btn-refresh-models" onclick="loadOllamaModels(true)"
+                                title="Actualiser la liste">
+                                <i class="fa-solid fa-arrows-rotate" id="refresh-icon"></i>
+                                <span data-i18n="btnRefreshModels">Actualiser / Refresh</span>
+                            </button>
+                        </div>
+                        <div class="variant-select-wrapper">
+                            <select id="ollama-model-select" class="form-control variant-select"
+                                onchange="onOllamaVariantChange(this.value)">
+                                <option value="gemma4:latest" selected>gemma4:latest (8.0B - Rapide &amp; équilibré / Fast &amp; Balanced)
+                                </option>
+                                <option value="gemma4:12b">gemma4:12b (11.9B - Plus puissant / More Powerful)</option>
+                            </select>
+                        </div>
+                        <small class="variant-note" id="ollama-model-note" data-i18n="noteLocalServer">Découvert depuis
+                            le serveur Ollama local.</small>
+                    </div>
+
+                    <!-- Argon Thinking Level Selector (Interactions API) -->
+                    <div id="argon-thinking-container" class="ollama-variant-box hidden">
+                        <div class="variant-header">
+                            <span class="variant-label">
+                                <i class="fa-solid fa-brain icon-chip"></i>
+                                <span data-i18n="labelArgonThinking">Niveau de réflexion Argon / Thinking Level:</span>
+                            </span>
+                        </div>
+                        <div class="variant-select-wrapper">
+                            <select id="argon-thinking-select" class="form-control variant-select">
+                                <option value="high" data-i18n="optThinkingHigh" selected>Élevé / High (Raisonnement approfondi • Recommandé / Recommended)</option>
+                                <option value="medium" data-i18n="optThinkingMedium">Moyen / Medium (Équilibré / Balanced)</option>
+                                <option value="low" data-i18n="optThinkingLow">Faible / Low (Rapide / Fast)</option>
+                            </select>
+                        </div>
+                        <small class="variant-note" data-i18n="noteArgonThinking">Contrôle la profondeur de raisonnement
+                            via l'API Interactions de Google.</small>
+                    </div>
+                </div>
+
+                <!-- 3. Custom Context / Expectations -->
+                <div class="form-group">
+                    <label for="custom-context" class="form-label">
+                        <i class="fa-solid fa-sliders icon-context"></i>
+                        <span data-i18n="labelContext">Contexte additionnel et attentes / Extra Context &amp;
+                            Expectations</span>
+                        <span class="optional-tag" data-i18n="tagOptional">(Optionnel / Optional)</span>
+                    </label>
+                    <textarea id="custom-context" class="form-control textarea-control" rows="3"
+                        placeholder="Ex. : Mettre l'accent sur les extraits de code, lister 5 points clés pour développeurs... / E.g. Focus on code snippets, top 5 takeaways for developers..."></textarea>
+                </div>
+
+                <!-- API Key Accordion / Setting -->
+                <div class="api-key-container">
+                    <button type="button" class="btn-toggle-key" onclick="toggleApiKeyInput()">
+                        <i class="fa-solid fa-key"></i> <span id="key-toggle-text" data-i18n="toggleKeyText">Clé API
+                            Gemini personnalisée (optionnelle) / Custom Gemini API Key</span>
+                        <i class="fa-solid fa-chevron-down toggle-chevron" id="key-chevron"></i>
+                    </button>
+                    <div id="api-key-drawer" class="api-key-drawer hidden">
+                        <input type="password" id="user-api-key" class="form-control"
+                            placeholder="AIzaSy... (Laisser vide pour utiliser la clé du serveur / Leave blank for server key)">
+                        <small class="help-text" data-i18n="helpApiKey">Optionnel. Votre clé ne sera jamais enregistrée
+                            sur le serveur.</small>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="btn-submit" class="btn-devfest">
+                    <span class="btn-content">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span data-i18n="btnSubmit">Générer le sommaire / Generate Summary</span>
+                    </span>
+                    <span class="btn-loader hidden">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <span data-i18n="btnAnalyzing">Analyse en cours / Analyzing...</span>
+                    </span>
+                </button>
+
+            </form>
+
+        </main>
+
+        <!-- Loading / Progress State -->
+        <div id="loading-container" class="loading-card hidden">
+            <div class="loading-spinner">
+                <span class="pine-spin">🌲</span>
+            </div>
+            <h3 id="loading-status" data-i18n="loadingTitle">Extraction de la transcription et génération du sommaire...</h3>
+            <p class="loading-sub" data-i18n="loadingSub">Traitement en cours aux couleurs de Sherbrooke et des
+                Cantons-de-l'Est.</p>
+        </div>
+
+        <!-- Error Container -->
+        <div id="error-container" class="error-card hidden">
+            <div class="error-header">
+                <div class="error-header-title">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <h4 id="error-title" data-i18n="errorTitleDefault">Impossible de générer le sommaire</h4>
+                </div>
+                <button type="button" class="btn-close-error" onclick="hideError()">&times;</button>
+            </div>
+            <p id="error-message">Une erreur est survenue.</p>
+        </div>
+
+        <!-- Result Container -->
+        <section id="result-container" class="result-card hidden">
+
+            <div class="result-header">
+                <div class="result-meta">
+                    <span class="model-badge" id="res-model-used">Ollama Gemma 4</span>
+                    <span class="transcript-badge" id="res-lang-info"><i class="fa-solid fa-closed-captioning"></i>
+                        Transcription</span>
+                </div>
+                <div class="result-actions">
+                    <button class="btn-action" onclick="copySummary()">
+                        <i class="fa-regular fa-copy"></i> <span id="copy-text" data-i18n="btnCopy">Copier / Copy</span>
+                    </button>
+                    <button class="btn-action" onclick="downloadMarkdown()">
+                        <i class="fa-solid fa-download"></i> <span data-i18n="btnDownload">Télécharger .md / Download
+                            .md</span>
+                    </button>
+                    <button class="btn-action btn-outline" onclick="toggleTranscript()">
+                        <i class="fa-solid fa-align-left"></i> <span id="transcript-toggle-text"
+                            data-i18n="btnViewTranscript">Voir la transcription / View Transcript</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video Title Bar -->
+            <div class="result-video-bar">
+                <img id="res-thumb" src="/static/video-placeholder.png" alt="Thumbnail" class="res-thumb"
+                    referrerpolicy="no-referrer">
+                <div>
+                    <h3 id="res-title">Video Title</h3>
+                    <p id="res-author">Channel</p>
+                </div>
+            </div>
+
+            <!-- Markdown Render Output -->
+            <div id="summary-content" class="markdown-body"></div>
+
+            <!-- Raw Transcript Drawer -->
+            <div id="transcript-drawer" class="transcript-drawer hidden">
+                <div class="drawer-header">
+                    <h4><i class="fa-solid fa-closed-captioning"></i> <span data-i18n="titleTranscript">Transcription
+                            complète / Full Transcript</span></h4>
+                    <button class="btn-close-drawer" onclick="toggleTranscript()">&times;</button>
+                </div>
+                <pre id="transcript-text-content" class="transcript-text"></pre>
+            </div>
+
+        </section>
+
+        <!-- DevFest Sherbrooke & Eastern Townships Footer -->
+        <footer class="devfest-footer">
+            <div class="footer-badges">
+                <span class="footer-badge">🎓 UdeS Campus</span>
+                <span class="footer-badge">⚡ GDG Cloud Sherbrooke</span>
+                <span class="footer-badge">🍁 Québec</span>
+            </div>
+            <p class="footer-copy">
+                <span data-i18n="footerText">Conçu pour le <strong>DevFest Sherbrooke</strong> 🌲⛰️ • Cantons-de-l'Est,
+                    Québec • Propulsé par <strong>Tokens &amp; Caféine</strong></span>
+            </p>
+        </footer>
+
+    </div>
+
+    <script src="/static/app.js?v=2.3"></script>
+</body>
+
+</html>
