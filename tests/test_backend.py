@@ -1,8 +1,14 @@
 """Unit tests for YouTube URL parsing, model resolution, and metadata retrieval."""
 
 import asyncio
+import os
+import tempfile
+
+import av
+from PIL import Image
 
 from app.llm_service import resolve_model_name
+from app.transcription_service import extract_video_frames_base64
 from app.youtube_service import (
     _has_meaningful_lyrics,
     close_youtube_client,
@@ -68,8 +74,34 @@ async def test_youtube_metadata_and_transcript() -> None:
     await close_youtube_client()
 
 
+def test_visual_video_frame_extraction() -> None:
+    """Verify keyframe extraction from a silent MP4 video file when no transcript exists."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        video_path = os.path.join(tmp_dir, "silent_demo.mp4")
+        container = av.open(video_path, mode="w")
+        stream = container.add_stream("mpeg4", rate=5)
+        stream.width = 320
+        stream.height = 240
+        stream.pix_fmt = "yuv420p"
+
+        for i in range(10):
+            img = Image.new("RGB", (320, 240), color=(i * 20, 100, 180))
+            frame = av.VideoFrame.from_image(img)
+            for packet in stream.encode(frame):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
+        container.close()
+
+        frames_b64 = extract_video_frames_base64(video_path, max_frames=4)
+        assert len(frames_b64) > 0, "Expected extracted base64 frames from silent MP4"
+        assert len(frames_b64) <= 4
+        print(f"✅ Visual video frame extraction test passed ({len(frames_b64)} frames extracted).")
+
+
 if __name__ == "__main__":
     test_extract_video_id()
     test_model_resolution()
     test_song_lyrics_detection()
+    test_visual_video_frame_extraction()
     asyncio.run(test_youtube_metadata_and_transcript())

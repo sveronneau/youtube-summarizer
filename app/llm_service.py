@@ -1,8 +1,9 @@
 """LLM orchestration service supporting local Ollama (Gemma 4) and Google Gemini APIs."""
 
 import asyncio
+import base64
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 from google import genai
@@ -121,15 +122,24 @@ async def get_ollama_models() -> Dict[str, Any]:
 
 
 async def generate_summary_with_ollama(
-    prompt: str, model_name: str = "gemma4:latest"
+    prompt: str,
+    model_name: str = "gemma4:latest",
+    images_b64: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Call local Ollama instance with comprehensive error handling."""
+    """Call local Ollama instance with comprehensive error handling and optional vision keyframes."""
     url = f"{OLLAMA_HOST.rstrip('/')}/api/generate"
-    payload = {"model": model_name, "prompt": prompt, "stream": False}
+    payload: Dict[str, Any] = {"model": model_name, "prompt": prompt, "stream": False}
+    if images_b64:
+        payload["images"] = images_b64
 
     client = get_llm_http_client()
     try:
         res = await client.post(url, json=payload, timeout=180.0)
+
+        # If a non-vision Ollama model rejected the 'images' array, retry text-only
+        if res.status_code not in (200, 404) and images_b64:
+            payload.pop("images", None)
+            res = await client.post(url, json=payload, timeout=180.0)
 
         if res.status_code == 200:
             data = res.json()
@@ -209,10 +219,11 @@ def _sync_sdk_generate(
     is_argon: bool,
     thinking_level: str,
     youtube_url: Optional[str] = None,
+    images_b64: Optional[List[str]] = None,
 ) -> Optional[str]:
     """Run synchronous google-genai SDK calls inside a worker thread to avoid blocking the event loop."""
     client = genai.Client(api_key=api_key)
-    if is_argon and hasattr(client, "interactions"):
+    if is_argon and hasattr(client, "interactions") and not images_b64:
         level = thinking_level if thinking_level in ("low", "medium", "high") else "high"
         interaction = client.interactions.create(
             model="gemini-4-argon",
@@ -220,6 +231,23 @@ def _sync_sdk_generate(
             generation_config={"thinking_level": level},
         )
         return getattr(interaction, "output_text", None)
+
+    if images_b64:
+        try:
+            image_parts = [
+                types.Part.from_bytes(
+                    data=base64.b64decode(b64), mime_type="image/jpeg"
+                )
+                for b64 in images_b64
+            ]
+            response = client.models.generate_content(
+                model=model_name, contents=[*image_parts, prompt]
+            )
+            text = getattr(response, "text", None)
+            if text:
+                return text
+        except Exception:
+            pass
 
     if youtube_url and youtube_url.startswith("http"):
         try:
@@ -245,6 +273,7 @@ async def generate_summary_with_gemini(
     api_key_override: Optional[str] = None,
     thinking_level: str = "high",
     youtube_url: Optional[str] = None,
+    images_b64: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Call Google Gemini API with comprehensive error handling.
@@ -273,7 +302,7 @@ async def generate_summary_with_gemini(
         # 1. Try SDK interactions if available on installed google-genai
         try:
             client = genai.Client(api_key=api_key)
-            if hasattr(client, "interactions"):
+            if hasattr(client, "interactions") and not images_b64:
                 output_text = await asyncio.to_thread(
                     _sync_sdk_generate,
                     api_key,
@@ -281,12 +310,14 @@ async def generate_summary_with_gemini(
                     prompt,
                     True,
                     thinking_level,
+                    youtube_url,
+                    images_b64,
                 )
         except Exception as e:
             last_err = str(e)
 
-        # 2. Direct HTTP REST call to Gemini Interactions API endpoint
-        if not output_text and not _is_fatal_api_error(last_err or ""):
+        # 2. Direct HTTP REST call to Gemini Interactions API endpoint (text-only)
+        if not output_text and not images_b64 and not _is_fatal_api_error(last_err or ""):
             try:
                 headers = {
                     "x-goog-api-key": api_key,
@@ -349,6 +380,7 @@ async def generate_summary_with_gemini(
                     False,
                     thinking_level,
                     youtube_url,
+                    images_b64,
                 )
             except Exception as e:
                 if not last_err:
@@ -364,6 +396,7 @@ async def generate_summary_with_gemini(
                 False,
                 thinking_level,
                 youtube_url,
+                images_b64,
             )
         except Exception as e:
             last_err = str(e)
@@ -426,10 +459,12 @@ async def generate_youtube_summary(
     thinking_level: str = "high",
     lang: str = "bi",
     song_mode: bool = False,
+    video_frames: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Generate structured summary using local Ollama (Gemma 4) or Gemini API with top-level try/except.
-    Adapts output language to user selection ('fr', 'en', or 'bi') and supports Song/Lyrics mode.
+    Adapts output language to user selection ('fr', 'en', or 'bi') and supports Song/Lyrics mode
+    as well as multimodal visual video keyframes when no captions or spoken audio are present.
     """
     try:
         model_name = resolve_model_name(model_choice)
@@ -495,6 +530,18 @@ async def generate_youtube_summary(
                 else "### Transcript / Video Content:"
             )
             transcript_section = f"{heading}\n{transcript_text}"
+            if video_frames:
+                transcript_section += (
+                    f"\n\n*(Note: {len(video_frames)} evenly spaced keyframes from the video are also attached visually. "
+                    "Combine the visual scenes, slides, and on-screen text with the text above.)*"
+                )
+        elif video_frames:
+            transcript_section = (
+                "### Visual Video Frames (No Spoken Audio / Captions):\n"
+                f"[{len(video_frames)} evenly spaced keyframes extracted directly from the video are attached to this prompt. "
+                "Carefully examine the visual scenes, actions, slides, diagrams, and any on-screen text across the frames, "
+                "and combine them with the media details and user context above to produce a rich, accurate summary.]"
+            )
         else:
             transcript_section = (
                 "### Transcript / Video Content:\n"
@@ -536,7 +583,9 @@ async def generate_youtube_summary(
 
         # Dispatch based on model choice: Local Ollama vs Remote Gemini
         if "gemma" in model_name.lower() or "ollama" in model_choice.lower():
-            result = await generate_summary_with_ollama(prompt, model_name)
+            result = await generate_summary_with_ollama(
+                prompt, model_name, images_b64=video_frames
+            )
         else:
             result = await generate_summary_with_gemini(
                 prompt=prompt,
@@ -544,6 +593,7 @@ async def generate_youtube_summary(
                 api_key_override=api_key_override,
                 thinking_level=thinking_level,
                 youtube_url=url if not (transcript_text and transcript_text.strip()) else None,
+                images_b64=video_frames,
             )
 
         if result.get("success"):
