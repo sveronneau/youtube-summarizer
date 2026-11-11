@@ -1,14 +1,16 @@
 """FastAPI application routes and lifecycle management for Video Summarizer."""
 
 import asyncio
+from contextlib import asynccontextmanager
+import json
+import logging
 import os
 import shutil
 import tempfile
-from contextlib import asynccontextmanager
-from typing import Any, Dict, Optional
+from typing import Any, AsyncIterator, Dict, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -16,6 +18,7 @@ from app.llm_service import (
     close_llm_client,
     generate_youtube_summary,
     get_ollama_models,
+    stream_youtube_summary,
 )
 from app.transcription_service import (
     extract_video_frames_base64,
@@ -27,6 +30,8 @@ from app.youtube_service import (
     get_video_metadata,
     get_video_transcript,
 )
+
+logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_MB", "500")) * 1024 * 1024
 ALLOWED_VIDEO_EXTENSIONS = (
@@ -56,12 +61,23 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Video Summarizer • DevFest Sherbrooke",
     description=(
-        "Summarize YouTube videos & local MP4 files using Ollama Gemma 4 & Gemini models "
+        "Summarize YouTube videos & local media files using Ollama Gemma 4 & Gemini models "
         "- DevFest Sherbrooke & Eastern Townships Edition"
     ),
-    version="2.1.0",
+    version="2.2.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next: Any) -> Any:
+    """Attach baseline security and referrer-privacy headers to all responses."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    return response
+
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -72,22 +88,27 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 class VideoInfoRequest(BaseModel):
     """Request payload for fetching YouTube video preview metadata."""
 
-    url: str
+    url: str = Field(..., max_length=2048)
 
 
 class SummarizeRequest(BaseModel):
     """Request payload for summarizing a YouTube video."""
 
-    url: str
+    url: str = Field(..., max_length=2048)
     model: str = Field(
         default="gemma4",
+        max_length=128,
         description="Choice of model: 'gemma4' (Ollama Local), 'flash' (Gemini 3.8 Flash), or 'argon' (Gemini 4 Argon)",
     )
     custom_context: Optional[str] = Field(
-        default="", description="Extra expectations / context for summary"
+        default="",
+        max_length=8000,
+        description="Extra expectations / context for summary",
     )
     api_key: Optional[str] = Field(
-        default=None, description="Optional user-provided Gemini API key"
+        default=None,
+        max_length=512,
+        description="Optional user-provided Gemini API key",
     )
     thinking_level: Optional[str] = Field(
         default="high",
@@ -100,6 +121,32 @@ class SummarizeRequest(BaseModel):
         default=False,
         description="Enable 2nd-pass audio lyrics extraction and music analysis when input is a song",
     )
+
+
+async def _save_upload_file_nonblocking(
+    upload_file: UploadFile, dest_path: str, max_bytes: int
+) -> Optional[str]:
+    """Stream uploaded file chunks to disk via worker thread to avoid blocking the event loop."""
+    total_bytes = 0
+    chunk_size = 1024 * 1024  # 1 MB chunks
+    handle = await asyncio.to_thread(open, dest_path, "wb")
+    try:
+        while True:
+            chunk = await upload_file.read(chunk_size)
+            if not chunk:
+                break
+            total_bytes += len(chunk)
+            if total_bytes > max_bytes:
+                return f"Uploaded file exceeds maximum allowed size ({max_bytes // (1024 * 1024)} MB)."
+            await asyncio.to_thread(handle.write, chunk)
+    finally:
+        await asyncio.to_thread(handle.close)
+    return None
+
+
+def _ndjson_line(payload: Dict[str, Any]) -> bytes:
+    """Serialize a streaming event dict as a UTF-8 NDJSON line."""
+    return (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
 
 
 @app.get("/")
@@ -153,7 +200,6 @@ async def summarize_video(req: SummarizeRequest) -> Dict[str, Any]:
                 "error": "Invalid YouTube URL format. Please paste a valid YouTube watch link, short link, or shorts URL.",
             }
 
-        # Fetch metadata and transcript concurrently (transcript is optional)
         metadata_task = asyncio.create_task(get_video_metadata(video_id))
         transcript_task = asyncio.to_thread(
             get_video_transcript, video_id, None, req.song_mode
@@ -162,8 +208,9 @@ async def summarize_video(req: SummarizeRequest) -> Dict[str, Any]:
             metadata_task, transcript_task
         )
 
-        # Refresh metadata from cache in case yt-dlp enriched it during transcript lookup
-        metadata = await get_video_metadata(video_id)
+        # Refresh metadata from cache in case yt-dlp enriched a fallback placeholder
+        if metadata.get("author_name") == "YouTube Creator":
+            metadata = await get_video_metadata(video_id)
 
         transcript_text = transcript_result.get("transcript_text") or ""
         video_frames = transcript_result.get("video_frames") or []
@@ -174,7 +221,6 @@ async def summarize_video(req: SummarizeRequest) -> Dict[str, Any]:
         )
         seg_count = transcript_result.get("segment_count", 0)
 
-        # Call LLM Service (Ollama / Gemini) — works with transcript, audio, or visual video frames
         summary_result = await generate_youtube_summary(
             video_metadata=metadata,
             transcript_text=transcript_text,
@@ -219,8 +265,109 @@ async def summarize_video(req: SummarizeRequest) -> Dict[str, Any]:
                 ),
             },
         }
-    except Exception as e:
-        return {"success": False, "error": f"Server Processing Error: {str(e)}"}
+    except Exception as exc:
+        logger.error("Error in /api/summarize: %s", exc)
+        return {"success": False, "error": f"Server Processing Error: {str(exc)}"}
+
+
+@app.post("/api/summarize/stream")
+async def summarize_video_stream(req: SummarizeRequest) -> StreamingResponse:
+    """Stream progress stages and live summary tokens for a YouTube video as NDJSON."""
+    video_id = extract_video_id(req.url)
+    if not video_id:
+
+        async def _invalid_gen() -> AsyncIterator[bytes]:
+            yield _ndjson_line(
+                {
+                    "type": "error",
+                    "error": "Invalid YouTube URL format. Please paste a valid YouTube watch link, short link, or shorts URL.",
+                }
+            )
+
+        return StreamingResponse(_invalid_gen(), media_type="application/x-ndjson")
+
+    async def _event_stream() -> AsyncIterator[bytes]:
+        try:
+            yield _ndjson_line({"type": "stage", "stage": "transcript"})
+            metadata_task = asyncio.create_task(get_video_metadata(video_id))
+            transcript_task = asyncio.to_thread(
+                get_video_transcript, video_id, None, req.song_mode
+            )
+            metadata, transcript_result = await asyncio.gather(
+                metadata_task, transcript_task
+            )
+            if metadata.get("author_name") == "YouTube Creator":
+                metadata = await get_video_metadata(video_id)
+
+            transcript_text = transcript_result.get("transcript_text") or ""
+            video_frames = transcript_result.get("video_frames") or []
+            lang_label = transcript_result.get("language_name") or (
+                f"🎬 Visual Video ({len(video_frames)} frames)"
+                if video_frames and not transcript_text
+                else ("No Captions" if not transcript_text else "Unknown")
+            )
+            seg_count = transcript_result.get("segment_count", 0)
+            full_transcript_display = (
+                transcript_text
+                if transcript_text
+                else (
+                    f"[No spoken audio or captions — summarized by visually analyzing {len(video_frames)} keyframes from the video]"
+                    if video_frames
+                    else "[No captions/transcript available for this video — summarized directly from video & metadata]"
+                )
+            )
+            transcript_info = {
+                "segment_count": seg_count,
+                "language": lang_label,
+                "full_transcript": full_transcript_display,
+            }
+
+            yield _ndjson_line(
+                {
+                    "type": "meta",
+                    "metadata": metadata,
+                    "transcript_info": transcript_info,
+                }
+            )
+            yield _ndjson_line({"type": "stage", "stage": "llm"})
+
+            async for ev in stream_youtube_summary(
+                video_metadata=metadata,
+                transcript_text=transcript_text,
+                model_choice=req.model,
+                custom_context=req.custom_context,
+                api_key_override=req.api_key,
+                thinking_level=req.thinking_level or "high",
+                lang=req.lang or "bi",
+                song_mode=req.song_mode,
+                video_frames=video_frames if video_frames else None,
+            ):
+                if ev["type"] == "chunk":
+                    yield _ndjson_line(ev)
+                elif ev["type"] == "done_llm":
+                    yield _ndjson_line(
+                        {
+                            "type": "done",
+                            "success": True,
+                            "summary": ev["summary"],
+                            "model_used": ev["model_used"],
+                            "metadata": metadata,
+                            "transcript_info": transcript_info,
+                        }
+                    )
+                elif ev["type"] == "error":
+                    yield _ndjson_line(ev)
+        except Exception as exc:
+            logger.error("Error in /api/summarize/stream: %s", exc)
+            yield _ndjson_line(
+                {"type": "error", "error": f"Server Processing Error: {str(exc)}"}
+            )
+
+    return StreamingResponse(
+        _event_stream(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/summarize-upload")
@@ -244,26 +391,15 @@ async def summarize_uploaded_file(
                 "error": "Unsupported media format. Please upload a video (.mp4, .mov, .mkv, .webm) or audio (.mp3, .wav, .m4a, .flac) file.",
             }
 
-        # Save uploaded file safely with size check
-        temp_dir = tempfile.mkdtemp()
+        temp_dir = tempfile.mkdtemp(prefix="upload_media_")
         safe_temp_path = os.path.join(temp_dir, f"upload{ext}")
 
-        total_bytes = 0
-        chunk_size = 1024 * 1024  # 1 MB chunks
-        with open(safe_temp_path, "wb") as buffer:
-            while True:
-                chunk = await file.read(chunk_size)
-                if not chunk:
-                    break
-                total_bytes += len(chunk)
-                if total_bytes > MAX_UPLOAD_BYTES:
-                    return {
-                        "success": False,
-                        "error": f"Uploaded file exceeds maximum allowed size ({MAX_UPLOAD_BYTES // (1024 * 1024)} MB).",
-                    }
-                buffer.write(chunk)
+        size_err = await _save_upload_file_nonblocking(
+            file, safe_temp_path, MAX_UPLOAD_BYTES
+        )
+        if size_err:
+            return {"success": False, "error": size_err}
 
-        # Offload CPU-bound Whisper transcription to a worker thread (optional: do not fail if no speech)
         transcribe_res = await asyncio.to_thread(
             transcribe_local_video, safe_temp_path, song_mode
         )
@@ -272,7 +408,6 @@ async def summarize_uploaded_file(
         seg_count = transcribe_res.get("segment_count", 0)
         video_frames = []
 
-        # If no spoken audio was transcribed from the uploaded file, extract visual keyframes
         if not transcript_text.strip():
             video_frames = await asyncio.to_thread(
                 extract_video_frames_base64, safe_temp_path, 8
@@ -293,7 +428,6 @@ async def summarize_uploaded_file(
             "url": raw_filename,
         }
 
-        # Generate summary via Ollama / Gemini (using transcript or extracted visual video frames)
         summary_result = await generate_youtube_summary(
             video_metadata=metadata,
             transcript_text=transcript_text,
@@ -338,8 +472,142 @@ async def summarize_uploaded_file(
                 ),
             },
         }
-    except Exception as e:
-        return {"success": False, "error": f"Upload Processing Error: {str(e)}"}
+    except Exception as exc:
+        logger.error("Error in /api/summarize-upload: %s", exc)
+        return {"success": False, "error": f"Upload Processing Error: {str(exc)}"}
     finally:
         if temp_dir and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@app.post("/api/summarize-upload/stream")
+async def summarize_uploaded_file_stream(
+    file: UploadFile = File(...),
+    model: str = Form("gemma4"),
+    custom_context: Optional[str] = Form(""),
+    api_key: Optional[str] = Form(None),
+    thinking_level: Optional[str] = Form("high"),
+    lang: Optional[str] = Form("bi"),
+    song_mode: bool = Form(False),
+) -> StreamingResponse:
+    """Save uploaded media before streaming response starts, then stream stages & tokens."""
+    raw_filename = os.path.basename(file.filename or "video.mp4")
+    _, ext = os.path.splitext(raw_filename.lower())
+    if ext not in ALLOWED_VIDEO_EXTENSIONS:
+
+        async def _ext_err() -> AsyncIterator[bytes]:
+            yield _ndjson_line(
+                {
+                    "type": "error",
+                    "error": "Unsupported media format. Please upload a video (.mp4, .mov, .mkv, .webm) or audio (.mp3, .wav, .m4a, .flac) file.",
+                }
+            )
+
+        return StreamingResponse(_ext_err(), media_type="application/x-ndjson")
+
+    temp_dir = tempfile.mkdtemp(prefix="upload_stream_")
+    safe_temp_path = os.path.join(temp_dir, f"upload{ext}")
+    size_err = await _save_upload_file_nonblocking(file, safe_temp_path, MAX_UPLOAD_BYTES)
+    if size_err:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+        async def _size_err() -> AsyncIterator[bytes]:
+            yield _ndjson_line({"type": "error", "error": size_err})
+
+        return StreamingResponse(_size_err(), media_type="application/x-ndjson")
+
+    async def _upload_event_stream() -> AsyncIterator[bytes]:
+        try:
+            yield _ndjson_line({"type": "stage", "stage": "transcript"})
+            transcribe_res = await asyncio.to_thread(
+                transcribe_local_video, safe_temp_path, song_mode
+            )
+
+            transcript_text = transcribe_res.get("transcript_text") or ""
+            seg_count = transcribe_res.get("segment_count", 0)
+            video_frames = []
+
+            if not transcript_text.strip():
+                yield _ndjson_line({"type": "stage", "stage": "frames"})
+                video_frames = await asyncio.to_thread(
+                    extract_video_frames_base64, safe_temp_path, 8
+                )
+
+            if transcribe_res.get("success") and transcript_text.strip():
+                lang_label = transcribe_res.get("language_name", "English")
+            elif video_frames:
+                lang_label = f"🎬 Visual Video ({len(video_frames)} frames)"
+                seg_count = len(video_frames)
+            else:
+                lang_label = "No Speech Track"
+
+            metadata = {
+                "title": f"{'Local Song' if song_mode else 'Local Media'}: {raw_filename}",
+                "author_name": "Local Audio / Video File",
+                "thumbnail_url": "/static/video-placeholder.png",
+                "url": raw_filename,
+            }
+            full_transcript_display = (
+                transcript_text
+                if transcript_text
+                else (
+                    f"[No spoken audio — summarized by visually analyzing {len(video_frames)} keyframes extracted from the video file]"
+                    if video_frames
+                    else "[No spoken audio transcribed from this video file — summarized using video context & metadata]"
+                )
+            )
+            transcript_info = {
+                "segment_count": seg_count,
+                "language": lang_label,
+                "full_transcript": full_transcript_display,
+            }
+
+            yield _ndjson_line(
+                {
+                    "type": "meta",
+                    "metadata": metadata,
+                    "transcript_info": transcript_info,
+                }
+            )
+            yield _ndjson_line({"type": "stage", "stage": "llm"})
+
+            async for ev in stream_youtube_summary(
+                video_metadata=metadata,
+                transcript_text=transcript_text,
+                model_choice=model,
+                custom_context=custom_context,
+                api_key_override=api_key,
+                thinking_level=thinking_level or "high",
+                lang=lang or "bi",
+                song_mode=song_mode,
+                video_frames=video_frames if video_frames else None,
+            ):
+                if ev["type"] == "chunk":
+                    yield _ndjson_line(ev)
+                elif ev["type"] == "done_llm":
+                    yield _ndjson_line(
+                        {
+                            "type": "done",
+                            "success": True,
+                            "summary": ev["summary"],
+                            "model_used": ev["model_used"],
+                            "metadata": metadata,
+                            "transcript_info": transcript_info,
+                        }
+                    )
+                elif ev["type"] == "error":
+                    yield _ndjson_line(ev)
+        except Exception as exc:
+            logger.error("Error in /api/summarize-upload/stream: %s", exc)
+            yield _ndjson_line(
+                {"type": "error", "error": f"Upload Processing Error: {str(exc)}"}
+            )
+        finally:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+    return StreamingResponse(
+        _upload_event_stream(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

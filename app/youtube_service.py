@@ -1,12 +1,16 @@
-"""YouTube metadata and caption extraction service with caching and yt-dlp fallback."""
+"""YouTube metadata and caption extraction service with thread-safe TTL caching and yt-dlp fallback."""
 
 from collections import OrderedDict
 import json
+import logging
 import os
 import re
 import shutil
 import tempfile
-from typing import Any, Dict, List, Optional
+import threading
+import time
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -16,12 +20,31 @@ from app.transcription_service import (
     transcribe_local_video,
 )
 
-# Bounded LRU caches to avoid redundant network calls between preview and summarization
+logger = logging.getLogger(__name__)
+
+# Bounded thread-safe TTL + LRU caches to avoid redundant network calls and bound RAM usage
 _MAX_CACHE_SIZE = 128
-_metadata_cache: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
-_transcript_cache: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+_MAX_VISUAL_CACHE_ITEMS = 16
+_CACHE_TTL_SECONDS = 3600.0
+_VIDEO_ID_RE = re.compile(r"^[0-9A-Za-z_-]{11}$")
+_VALID_YOUTUBE_HOSTS = {
+    "youtube.com",
+    "www.youtube.com",
+    "m.youtube.com",
+    "music.youtube.com",
+    "youtu.be",
+    "www.youtu.be",
+    "youtube-nocookie.com",
+    "www.youtube-nocookie.com",
+}
+
+_cache_lock = threading.RLock()
+_metadata_cache: "OrderedDict[str, Tuple[float, Dict[str, Any]]]" = OrderedDict()
+_transcript_cache: "OrderedDict[str, Tuple[float, Dict[str, Any]]]" = OrderedDict()
 
 _http_client: Optional[httpx.AsyncClient] = None
+_MAX_FALLBACK_DOWNLOAD_BYTES = int(os.getenv("MAX_YT_FALLBACK_MB", "100")) * 1024 * 1024
+_MAX_FALLBACK_DURATION_SEC = int(os.getenv("MAX_YT_FALLBACK_DURATION_SEC", "14400"))
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -40,41 +63,99 @@ async def close_youtube_client() -> None:
         _http_client = None
 
 
-def _cache_set(cache: OrderedDict, key: str, value: Dict[str, Any]) -> None:
-    """Insert or update an entry in a bounded OrderedDict LRU cache."""
-    if key in cache:
+def _cache_get(
+    cache: "OrderedDict[str, Tuple[float, Dict[str, Any]]]", key: str
+) -> Optional[Dict[str, Any]]:
+    """Retrieve a non-expired item from a thread-safe OrderedDict LRU cache."""
+    now = time.monotonic()
+    with _cache_lock:
+        entry = cache.get(key)
+        if entry is None:
+            return None
+        ts, val = entry
+        if now - ts > _CACHE_TTL_SECONDS:
+            cache.pop(key, None)
+            return None
         cache.move_to_end(key)
-    cache[key] = value
-    if len(cache) > _MAX_CACHE_SIZE:
-        cache.popitem(last=False)
+        return val
+
+
+def _cache_set(
+    cache: "OrderedDict[str, Tuple[float, Dict[str, Any]]]",
+    key: str,
+    value: Dict[str, Any],
+) -> None:
+    """Insert or update an entry in a thread-safe bounded OrderedDict LRU cache."""
+    now = time.monotonic()
+    with _cache_lock:
+        if key in cache:
+            cache.move_to_end(key)
+        cache[key] = (now, value)
+
+        # Enforce stricter cap on entries carrying base64 video keyframes (~500KB-1MB each)
+        if value.get("video_frames"):
+            visual_keys = [
+                k for k, (_, v) in cache.items() if v.get("video_frames")
+            ]
+            while len(visual_keys) > _MAX_VISUAL_CACHE_ITEMS:
+                oldest_visual = visual_keys.pop(0)
+                cache.pop(oldest_visual, None)
+
+        while len(cache) > _MAX_CACHE_SIZE:
+            cache.popitem(last=False)
 
 
 def extract_video_id(url: str) -> Optional[str]:
-    """Extract 11-character YouTube video ID from various YouTube URL formats."""
+    """
+    Strictly extract an 11-character YouTube video ID from valid YouTube URLs.
+    Rejects non-YouTube domains, channel URLs (/channel/UC...), playlists, and @handles.
+    """
     if not url:
         return None
-    url = url.strip()
+    cleaned = url.strip()
 
-    patterns = [
-        r"(?:v=|\/)([0-9A-Za-z_-]{11}).*",
-        r"(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/)([^#\&\?]*).*",
-        r"youtu\.be\/([0-9A-Za-z_-]{11})",
-    ]
+    # Prepend scheme if user pasted 'youtu.be/...' or 'youtube.com/...' without https://
+    if re.match(r"^(?:(?:www|m|music)\.)?(?:youtube\.com|youtu\.be|youtube-nocookie\.com)/", cleaned, re.IGNORECASE):
+        cleaned = f"https://{cleaned}"
 
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            v_id = match.group(1)
-            if len(v_id) == 11:
-                return v_id
+    try:
+        parsed = urlparse(cleaned)
+    except Exception:
+        return None
+
+    host = (parsed.hostname or "").lower()
+    if host not in _VALID_YOUTUBE_HOSTS:
+        return None
+
+    path_parts = [p for p in parsed.path.split("/") if p]
+
+    # Short link: https://youtu.be/<11-char-id>
+    if host in ("youtu.be", "www.youtu.be"):
+        if path_parts and _VIDEO_ID_RE.fullmatch(path_parts[0]):
+            return path_parts[0]
+        return None
+
+    # Standard watch URL: /watch?v=<11-char-id>
+    query_params = parse_qs(parsed.query)
+    if (not path_parts or path_parts[0] == "watch") and "v" in query_params:
+        candidate = query_params["v"][0].strip()
+        if _VIDEO_ID_RE.fullmatch(candidate):
+            return candidate
+
+    # Path-based video routes: /shorts/<id>, /embed/<id>, /live/<id>, /v/<id>
+    if len(path_parts) >= 2 and path_parts[0] in ("shorts", "embed", "live", "v", "e"):
+        candidate = path_parts[1].strip()
+        if _VIDEO_ID_RE.fullmatch(candidate):
+            return candidate
+
     return None
 
 
 async def get_video_metadata(video_id: str) -> Dict[str, Any]:
     """Fetch video metadata (title, author, thumbnail) using YouTube oEmbed with caching and reliable fallback."""
-    if video_id in _metadata_cache:
-        _metadata_cache.move_to_end(video_id)
-        return _metadata_cache[video_id]
+    cached = _cache_get(_metadata_cache, video_id)
+    if cached is not None:
+        return cached
 
     oembed_url = (
         f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
@@ -96,8 +177,8 @@ async def get_video_metadata(video_id: str) -> Dict[str, Any]:
             }
             _cache_set(_metadata_cache, video_id, meta)
             return meta
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("oEmbed metadata fetch failed for %s: %s", video_id, exc)
 
     return {
         "video_id": video_id,
@@ -122,8 +203,8 @@ def _parse_vtt_or_json3(raw_content: str, ext: str) -> List[str]:
                     lines.append(segment_text.replace("\n", " "))
             if lines:
                 return lines
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to parse json3 subtitle track: %s", exc)
 
     # Fallback: VTT / SRT / XML tag stripping
     for line in raw_content.splitlines():
@@ -158,19 +239,19 @@ def _has_meaningful_lyrics(text: str) -> bool:
 
 
 class _QuietYtdlpLogger:
-    """Silence yt-dlp console and deprecation output."""
+    """Silence yt-dlp console and deprecation output while routing errors to debug logs."""
 
-    def debug(self, msg: str) -> None:
+    def debug(self, _msg: str) -> None:
         pass
 
-    def info(self, msg: str) -> None:
+    def info(self, _msg: str) -> None:
         pass
 
-    def warning(self, msg: str) -> None:
+    def warning(self, _msg: str) -> None:
         pass
 
     def error(self, msg: str) -> None:
-        pass
+        logger.debug("yt-dlp: %s", msg)
 
 
 def _fetch_lrclib_lyrics(
@@ -189,7 +270,9 @@ def _fetch_lrclib_lyrics(
         flags=re.IGNORECASE,
     )
     clean_title = re.sub(r"\[[^\]]*\]", "", clean_title).strip()
-    clean_artist = re.sub(r"\s*-\s*Topic$", "", artist or "", flags=re.IGNORECASE).strip()
+    clean_artist = re.sub(
+        r"\s*-\s*Topic$", "", artist or "", flags=re.IGNORECASE
+    ).strip()
 
     queries = []
     if clean_artist and clean_artist.lower() not in clean_title.lower():
@@ -229,8 +312,8 @@ def _fetch_lrclib_lyrics(
                                     "segment_count": len(lines),
                                     "pass_used": 2,
                                 }
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("LRCLIB lookup failed for '%s': %s", title, exc)
     return None
 
 
@@ -244,11 +327,14 @@ def _extract_youtube_song_audio_transcript(
     """
     Audio & visual media fallback for YouTube videos without captions:
     1. If song_mode=True, checks LRCLIB for exact, typo-free studio lyrics first.
-    2. Downloads a lightweight video/audio stream via yt-dlp into a temporary folder
+    2. Downloads a size/duration-bounded stream via yt-dlp into a temporary folder
        and runs faster-whisper (in song_mode or standard speech mode).
     3. If the video has no spoken speech or lyrics at all, extracts visual keyframes
        so multimodal LLMs (Ollama Gemma 4 / Gemini) can visually read the video.
     """
+    if not _VIDEO_ID_RE.fullmatch(video_id):
+        return None
+
     if song_mode:
         lrclib_res = _fetch_lrclib_lyrics(title, artist, description_fallback)
         if lrclib_res:
@@ -258,11 +344,31 @@ def _extract_youtube_song_audio_transcript(
     try:
         import yt_dlp
 
+        def _safe_media_filter(
+            info_dict: Dict[str, Any], **_kwargs: Any
+        ) -> Optional[str]:
+            if info_dict.get("is_live"):
+                return "Skipping active livestream download"
+            duration = info_dict.get("duration")
+            if duration and duration > _MAX_FALLBACK_DURATION_SEC:
+                return "Video exceeds maximum fallback download duration"
+            return None
+
         temp_dir = tempfile.mkdtemp(prefix="yt_media_")
         out_template = os.path.join(temp_dir, "media.%(ext)s")
         media_opts = {
-            "format": "best[ext=mp4][height<=360]/best[ext=mp4][height<=480]/bestaudio[ext=m4a]/bestaudio/best[filesize<100M]",
+            "format": (
+                "best[ext=mp4][height<=360][filesize<100M]/"
+                "best[ext=mp4][height<=360]/"
+                "best[ext=mp4][height<=480][filesize<100M]/"
+                "bestaudio[ext=m4a][filesize<100M]/"
+                "bestaudio[filesize<100M]/"
+                "best[filesize<100M]"
+            ),
             "outtmpl": out_template,
+            "max_filesize": _MAX_FALLBACK_DOWNLOAD_BYTES,
+            "socket_timeout": 15,
+            "match_filter": _safe_media_filter,
             "quiet": True,
             "no_warnings": True,
             "noplaylist": True,
@@ -327,8 +433,8 @@ def _extract_youtube_song_audio_transcript(
                 "segment_count": len(frames_b64),
                 "video_frames": frames_b64,
             }
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Fallback audio/frame extraction failed for %s: %s", video_id, exc)
     finally:
         if temp_dir and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -342,13 +448,13 @@ def get_video_transcript(
 ) -> Dict[str, Any]:
     """
     Fetch the transcript for a YouTube video using youtube-transcript-api with yt-dlp fallback.
-    When song_mode=True and captions are missing or only '[Music]' tags, runs a 2nd-pass
-    audio download + faster-whisper lyrics transcription.
+    When captions are missing (or '[Music]' tags in song_mode), falls back to LRCLIB lyrics,
+    faster-whisper audio transcription, or visual keyframe extraction.
     """
     cache_key = f"{video_id}:song" if song_mode else video_id
-    if cache_key in _transcript_cache:
-        _transcript_cache.move_to_end(cache_key)
-        return _transcript_cache[cache_key]
+    cached = _cache_get(_transcript_cache, cache_key)
+    if cached is not None:
+        return cached
 
     if languages is None:
         languages = ["fr", "en", "es", "de", "pt", "it", "ja", "ko", "zh"]
@@ -424,10 +530,10 @@ def get_video_transcript(
                 _cache_set(_transcript_cache, cache_key, result)
                 return result
 
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("youtube-transcript-api lookup missed for %s: %s", video_id, exc)
 
-    # Attempt 2: Fallback to yt-dlp subtitles, 2nd-pass song audio extraction, or description/chapters
+    # Attempt 2: Fallback to yt-dlp subtitles, audio/visual extraction, or description/chapters
     description_text = ""
     try:
         import yt_dlp
@@ -437,6 +543,7 @@ def get_video_transcript(
             "writesub": True,
             "writeautomaticsub": True,
             "subtitleslangs": languages,
+            "socket_timeout": 15,
             "quiet": True,
             "no_warnings": True,
             "logger": _QuietYtdlpLogger(),
@@ -445,7 +552,6 @@ def get_video_transcript(
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if info:
-                # Update metadata cache with rich yt-dlp info if available
                 if info.get("title"):
                     _cache_set(
                         _metadata_cache,
@@ -522,29 +628,29 @@ def get_video_transcript(
                                             )
                                             return result
 
-                # Attempt 2B: When captions are missing (or '[Music]' only in song_mode),
-                # fall back to audio transcription (faster-whisper) and visual frame extraction
-                song_title = (
-                    info.get("track") or info.get("title") or ""
-                ).strip()
-                song_artist = (
-                    info.get("artist")
-                    or info.get("uploader")
-                    or info.get("channel")
-                    or ""
-                ).strip()
-                song_audio_res = _extract_youtube_song_audio_transcript(
-                    video_id,
-                    description_fallback=description_text,
-                    title=song_title,
-                    artist=song_artist,
-                    song_mode=song_mode,
-                )
-                if song_audio_res:
-                    _cache_set(_transcript_cache, cache_key, song_audio_res)
-                    return song_audio_res
+                # Attempt 2B: Audio transcription (faster-whisper) & visual keyframe extraction
+                if not info.get("is_live"):
+                    song_title = (
+                        info.get("track") or info.get("title") or ""
+                    ).strip()
+                    song_artist = (
+                        info.get("artist")
+                        or info.get("uploader")
+                        or info.get("channel")
+                        or ""
+                    ).strip()
+                    song_audio_res = _extract_youtube_song_audio_transcript(
+                        video_id,
+                        description_fallback=description_text,
+                        title=song_title,
+                        artist=song_artist,
+                        song_mode=song_mode,
+                    )
+                    if song_audio_res:
+                        _cache_set(_transcript_cache, cache_key, song_audio_res)
+                        return song_audio_res
 
-                # If video has no subtitles or audio/frames, use description and chapters if present
+                # Fallback to description and chapters if present
                 chapters = info.get("chapters") or []
                 fallback_parts = []
                 if description_text:
@@ -568,10 +674,9 @@ def get_video_transcript(
                     }
                     _cache_set(_transcript_cache, cache_key, result)
                     return result
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("yt-dlp metadata/subtitle fallback failed for %s: %s", video_id, exc)
 
-    # If yt-dlp metadata extraction had an issue in song_mode, still try direct 2nd-pass audio download
     if song_mode:
         song_audio_res = _extract_youtube_song_audio_transcript(
             video_id, description_fallback=description_text, song_mode=song_mode
@@ -580,7 +685,6 @@ def get_video_transcript(
             _cache_set(_transcript_cache, cache_key, song_audio_res)
             return song_audio_res
 
-    # Return graceful empty transcript so summarization can still proceed without captions
     return {
         "success": False,
         "transcript_text": "",
