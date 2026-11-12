@@ -9,10 +9,12 @@ from PIL import Image
 
 from app.llm_service import (
     _build_interactions_input,
+    _canonical_gemini4_model,
     _compute_ollama_options,
     _fit_transcript_to_budget,
     _format_gemini_error,
     _is_gemini4_reasoning_model,
+    _is_gemini_reasoning_model,
     resolve_model_name,
 )
 from app.transcription_service import (
@@ -75,6 +77,12 @@ def test_model_resolution() -> None:
     assert _is_gemini4_reasoning_model("gemini-4-argon")
     assert _is_gemini4_reasoning_model("gemini-4-carbon")
     assert not _is_gemini4_reasoning_model("gemini-3.8-flash")
+    assert _is_gemini_reasoning_model("gemini-3.8-flash")
+    assert _is_gemini_reasoning_model("gemini-4-argon")
+    assert _is_gemini_reasoning_model("gemini-4-carbon")
+    assert _canonical_gemini4_model("gemini-3.8-flash") == "gemini-3.8-flash"
+    assert _canonical_gemini4_model("gemini-4-argon") == "gemini-4-argon"
+    assert _canonical_gemini4_model("gemini-4-carbon") == "gemini-4-carbon"
     mm_input = _build_interactions_input("Summarize frames", ["YWJj"])
     assert isinstance(mm_input, list) and mm_input[0]["type"] == "image"
     print("✅ Model resolution tests passed.")

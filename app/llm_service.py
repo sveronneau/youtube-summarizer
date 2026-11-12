@@ -105,9 +105,20 @@ def _is_gemini4_reasoning_model(model_name: str) -> bool:
     return "argon" in low or "carbon" in low
 
 
+def _is_gemini_reasoning_model(model_name: str) -> bool:
+    """Return True if the resolved model supports configurable thinking_level (Flash 3.8, Argon 4, Carbon 4)."""
+    low = model_name.lower()
+    return "flash" in low or "argon" in low or "carbon" in low
+
+
 def _canonical_gemini4_model(model_name: str) -> str:
-    """Normalize a Gemini 4 reasoning model name to its exact API model string."""
-    return "gemini-4-carbon" if "carbon" in model_name.lower() else "gemini-4-argon"
+    """Normalize a Gemini reasoning model name to its exact API model string."""
+    low = model_name.lower()
+    if "carbon" in low:
+        return "gemini-4-carbon"
+    if "flash" in low:
+        return "gemini-3.8-flash"
+    return "gemini-4-argon"
 
 
 def _fit_transcript_to_budget(
@@ -580,7 +591,7 @@ async def generate_summary_with_gemini(
             ),
         }
 
-    is_gemini4 = _is_gemini4_reasoning_model(model_name)
+    is_gemini4 = _is_gemini_reasoning_model(model_name)
     target_model = _canonical_gemini4_model(model_name) if is_gemini4 else model_name
     output_text = None
     last_err = None
@@ -734,7 +745,7 @@ async def _stream_summary_with_gemini(
         }
         return
 
-    is_gemini4 = _is_gemini4_reasoning_model(model_name)
+    is_gemini4 = _is_gemini_reasoning_model(model_name)
     target_model = _canonical_gemini4_model(model_name) if is_gemini4 else model_name
     if is_gemini4:
         res = await generate_summary_with_gemini(

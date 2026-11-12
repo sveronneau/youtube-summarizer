@@ -80,6 +80,8 @@
             labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon (API Interactions) :",
             noteCarbonThinking: "Gemini 4 Carbon engage un raisonnement maximal par défaut. Vous pouvez ajuster le niveau de réflexion (Faible, Moyen, Élevé) via thinking_level dans l'API Interactions.",
             labelArgonThinking: "Niveau de réflexion Gemini 4 Argon (API Interactions) :",
+            labelFlashThinking: "Niveau de réflexion Gemini 3.8 Flash (API Interactions) :",
+            noteFlashThinking: "Contrôle la profondeur de raisonnement (Faible, Moyen, Élevé) pour Gemini 3.8 Flash via thinking_level dans l'API Interactions.",
             optThinkingHigh: "Élevé (Raisonnement approfondi • Recommandé)",
             optThinkingMedium: "Moyen (Équilibré)",
             optThinkingLow: "Faible (Rapide)",
@@ -140,6 +142,8 @@
             labelCarbonThinking: "Gemini 4 Carbon Reasoning Depth (Interactions API):",
             noteCarbonThinking: "Gemini 4 Carbon engages deep frontier reasoning by default. You can adjust the reasoning depth (Low, Medium, High) via thinking_level in the Google Interactions API.",
             labelArgonThinking: "Gemini 4 Argon Reasoning Depth (Interactions API):",
+            labelFlashThinking: "Gemini 3.8 Flash Reasoning Depth (Interactions API):",
+            noteFlashThinking: "Controls reasoning depth (Low, Medium, High) for Gemini 3.8 Flash via thinking_level in the Google Interactions API.",
             optThinkingHigh: "High (Deep Reasoning • Recommended)",
             optThinkingMedium: "Medium (Balanced)",
             optThinkingLow: "Low (Fast)",
@@ -200,6 +204,8 @@
             labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon / Reasoning Depth (Interactions API):",
             noteCarbonThinking: "Gemini 4 Carbon applique un raisonnement maximal par défaut / Engages deep frontier reasoning by default (Low, Medium, High via thinking_level).",
             labelArgonThinking: "Niveau de réflexion Gemini 4 Argon / Reasoning Depth (Interactions API):",
+            labelFlashThinking: "Niveau de réflexion Gemini 3.8 Flash / Reasoning Depth (Interactions API):",
+            noteFlashThinking: "Contrôle la profondeur de raisonnement pour Gemini 3.8 Flash / Controls reasoning depth (Faible, Moyen, Élevé / Low, Medium, High via thinking_level).",
             optThinkingHigh: "Élevé / High (Raisonnement approfondi • Recommandé / Recommended)",
             optThinkingMedium: "Moyen / Medium (Équilibré / Balanced)",
             optThinkingLow: "Faible / Low (Rapide / Fast)",
@@ -500,9 +506,13 @@
     function updateThinkingContainer() {
         const container = document.getElementById('argon-thinking-container');
         if (!container) return;
-        const isGemini4 = (state.selectedModel === 'argon' || state.selectedModel === 'carbon');
-        container.classList.toggle('hidden', !isGemini4);
-        if (!isGemini4) return;
+        const isGeminiReasoning = (
+            state.selectedModel === 'flash' ||
+            state.selectedModel === 'argon' ||
+            state.selectedModel === 'carbon'
+        );
+        container.classList.toggle('hidden', !isGeminiReasoning);
+        if (!isGeminiReasoning) return;
 
         const dict = translations[state.currentLang] || translations.bi;
         const labelEl = document.getElementById('argon-thinking-label-text');
@@ -516,6 +526,15 @@
             if (noteEl) {
                 noteEl.setAttribute('data-i18n', 'noteCarbonThinking');
                 if (dict.noteCarbonThinking) noteEl.textContent = dict.noteCarbonThinking;
+            }
+        } else if (state.selectedModel === 'flash') {
+            if (labelEl) {
+                labelEl.setAttribute('data-i18n', 'labelFlashThinking');
+                if (dict.labelFlashThinking) labelEl.textContent = dict.labelFlashThinking;
+            }
+            if (noteEl) {
+                noteEl.setAttribute('data-i18n', 'noteFlashThinking');
+                if (dict.noteFlashThinking) noteEl.textContent = dict.noteFlashThinking;
             }
         } else {
             if (labelEl) {
@@ -647,6 +666,8 @@
                 displayLabel = `Gemini (gemini-4-carbon • ${reasonPrefix}: ${thinkingLevel})`;
             } else if (modelUsedLabel === 'argon' || modelUsedLabel === 'gemini-4-argon') {
                 displayLabel = `Gemini (gemini-4-argon • ${reasonPrefix}: ${thinkingLevel})`;
+            } else if (modelUsedLabel === 'flash' || modelUsedLabel === 'gemini-3.8-flash') {
+                displayLabel = `Gemini (gemini-3.8-flash • ${reasonPrefix}: ${thinkingLevel})`;
             }
             modelBadge.textContent = displayLabel;
         }
