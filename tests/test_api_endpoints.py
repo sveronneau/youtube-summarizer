@@ -73,6 +73,8 @@ async def run_endpoint_tests() -> None:
         assert "/static/vendor/marked.min.js" in res_index.text
         assert 'id="card-hydrogen"' in res_index.text
         assert 'value="hydrogen"' in res_index.text
+        assert 'data-i18n="tagArgon"' in res_index.text
+        assert 'id="card-flash"' not in res_index.text
         assert 'id="card-carbon"' in res_index.text
         assert 'value="carbon"' in res_index.text
         print("✅ Index route & security headers verified.")

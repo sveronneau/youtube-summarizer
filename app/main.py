@@ -115,7 +115,7 @@ class SummarizeRequest(BaseModel):
     )
     thinking_level: Optional[str] = Field(
         default="high",
-        description="Reasoning depth for Gemini 3.8 Flash / Gemini 4 (Hydrogen, Argon, Carbon): 'low', 'medium', 'high', or 'xhigh' (Hydrogen)",
+        description="Reasoning depth for Gemini 4 (Hydrogen, Argon, Carbon): 'low', 'medium', 'high', or 'xhigh' (Hydrogen)",
     )
     lang: Optional[str] = Field(
         default="bi", description="Interface language preference: 'fr', 'en', or 'bi'"
