@@ -71,6 +71,8 @@ async def run_endpoint_tests() -> None:
         assert res_index.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
         assert res_index.headers.get("X-Frame-Options") == "SAMEORIGIN"
         assert "/static/vendor/marked.min.js" in res_index.text
+        assert 'id="card-carbon"' in res_index.text
+        assert 'value="carbon"' in res_index.text
         print("✅ Index route & security headers verified.")
 
         # 2. Strict /api/video-info validation
@@ -103,11 +105,12 @@ async def run_endpoint_tests() -> None:
         ):
             res_sum = await client.post(
                 "/api/summarize",
-                json={"url": "https://youtu.be/dQw4w9WgXcQ", "model": "gemma4:12b"},
+                json={"url": "https://youtu.be/dQw4w9WgXcQ", "model": "carbon"},
             )
             assert res_sum.status_code == 200
             body = res_sum.json()
             assert body["success"] is True
+            assert body["model_used"] == "Mock (carbon)"
             assert "TextLen=27" in body["summary"]
 
             res_stream = await client.post(
@@ -149,7 +152,11 @@ async def run_endpoint_tests() -> None:
             patch("app.main.generate_youtube_summary", new=_fake_summary),
             patch(
                 "app.main.transcribe_local_video",
-                return_value={"success": False, "error": "No speech"},
+                return_value={
+                    "success": False,
+                    "reason": "no_speech",
+                    "error": "No speech",
+                },
             ),
         ):
             silent_res = await client.post(
@@ -161,7 +168,38 @@ async def run_endpoint_tests() -> None:
             assert silent_json["success"] is True
             assert "🎬 Visual Video" in silent_json["transcript_info"]["language"]
             assert "Frames=0" not in silent_json["summary"]
-        print("✅ /api/summarize-upload (extension, size limit, and visual keyframe fallback) verified.")
+
+        # 5. Offline Whisper model missing MUST fail loudly instead of faking Visual Video
+        with patch(
+            "app.main.transcribe_local_video",
+            return_value={
+                "success": False,
+                "reason": "whisper_unavailable",
+                "error": "Offline Speech Model Not Cached: Faster-Whisper model 'base' is not downloaded.",
+            },
+        ):
+            missing_whisper_res = await client.post(
+                "/api/summarize-upload",
+                files={"file": ("talk_with_speech.mp4", mp4_bytes, "video/mp4")},
+                data={"model": "gemma4:12b", "lang": "fr"},
+            )
+            mw_json = missing_whisper_res.json()
+            assert mw_json["success"] is False
+            assert "Offline Speech Model Not Cached" in mw_json["error"]
+
+            missing_whisper_stream = await client.post(
+                "/api/summarize-upload/stream",
+                files={"file": ("talk_with_speech.mp4", mp4_bytes, "video/mp4")},
+                data={"model": "gemma4:12b", "lang": "fr"},
+            )
+            stream_events = [
+                json.loads(line)
+                for line in missing_whisper_stream.text.splitlines()
+                if line.strip()
+            ]
+            assert stream_events[-1]["type"] == "error"
+            assert "Offline Speech Model Not Cached" in stream_events[-1]["error"]
+        print("✅ /api/summarize-upload (extension, size limit, visual fallback & offline Whisper guard) verified.")
 
 
 if __name__ == "__main__":

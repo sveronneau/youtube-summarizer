@@ -416,9 +416,16 @@ def _extract_youtube_song_audio_transcript(
                 "pass_used": whisper_res.get("pass_used", 1),
             }
 
+        if whisper_res.get("reason") == "whisper_unavailable":
+            logger.warning(
+                "Whisper model not cached while processing fallback audio for %s",
+                video_id,
+            )
+
         # No spoken speech/lyrics found -> extract visual keyframes from the video
         frames_b64 = extract_video_frames_base64(media_path, max_frames=8)
         if frames_b64:
+            whisper_missing = whisper_res.get("reason") == "whisper_unavailable"
             desc_text = (
                 f"Video Description:\n{description_fallback}"
                 if description_fallback
@@ -429,7 +436,11 @@ def _extract_youtube_song_audio_transcript(
                 "transcript_text": desc_text,
                 "formatted_segments": [],
                 "language_code": "visual",
-                "language_name": f"🎬 Visual Video ({len(frames_b64)} frames)",
+                "language_name": (
+                    f"⚠️ Whisper Not Cached — Visual ({len(frames_b64)} frames)"
+                    if whisper_missing
+                    else f"🎬 Visual Video ({len(frames_b64)} frames)"
+                ),
                 "segment_count": len(frames_b64),
                 "video_frames": frames_b64,
             }

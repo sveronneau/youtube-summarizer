@@ -72,10 +72,16 @@
             descGemma4: "Modèle local privé via Ollama (gemma4:12b / latest).",
             descFlash: "Exécution ultra-rapide et synthèse équilibrée.",
             descArgon: "Raisonnement approfondi et analyse multimodale.",
+            tagCarbon: "Pointe • 1M",
+            descCarbon: "Raisonnement de pointe maximal (1M contexte).",
             labelLocalVariant: "Variante locale Gemma 4 :",
             btnRefreshModels: "Actualiser",
             noteLocalServer: "Découvert depuis le serveur Ollama local.",
-            labelArgonThinking: "Niveau de réflexion Argon (API Interactions) :",
+            labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon (API Interactions) :",
+            noteCarbonThinking: "Gemini 4 Carbon engage un raisonnement maximal par défaut. Vous pouvez ajuster le niveau de réflexion (Faible, Moyen, Élevé) via thinking_level dans l'API Interactions.",
+            labelArgonThinking: "Niveau de réflexion Gemini 4 Argon (API Interactions) :",
+            labelFlashThinking: "Niveau de réflexion Gemini 3.8 Flash (API Interactions) :",
+            noteFlashThinking: "Contrôle la profondeur de raisonnement (Faible, Moyen, Élevé) pour Gemini 3.8 Flash via thinking_level dans l'API Interactions.",
             optThinkingHigh: "Élevé (Raisonnement approfondi • Recommandé)",
             optThinkingMedium: "Moyen (Équilibré)",
             optThinkingLow: "Faible (Rapide)",
@@ -128,14 +134,20 @@
             descGemma4: "Private local model via Ollama (gemma4:12b / latest).",
             descFlash: "Ultra-fast execution and balanced summary.",
             descArgon: "Deep reasoning and multimodal analysis.",
+            tagCarbon: "Frontier • 1M",
+            descCarbon: "Maximum frontier reasoning depth (1M context).",
             labelLocalVariant: "Select Local Gemma 4 Variant:",
             btnRefreshModels: "Refresh",
             noteLocalServer: "Loaded from local Ollama server.",
-            labelArgonThinking: "Argon Reasoning Depth (Interactions API):",
+            labelCarbonThinking: "Gemini 4 Carbon Reasoning Depth (Interactions API):",
+            noteCarbonThinking: "Gemini 4 Carbon engages deep frontier reasoning by default. You can adjust the reasoning depth (Low, Medium, High) via thinking_level in the Google Interactions API.",
+            labelArgonThinking: "Gemini 4 Argon Reasoning Depth (Interactions API):",
+            labelFlashThinking: "Gemini 3.8 Flash Reasoning Depth (Interactions API):",
+            noteFlashThinking: "Controls reasoning depth (Low, Medium, High) for Gemini 3.8 Flash via thinking_level in the Google Interactions API.",
             optThinkingHigh: "High (Deep Reasoning • Recommended)",
             optThinkingMedium: "Medium (Balanced)",
             optThinkingLow: "Low (Fast)",
-            noteArgonThinking: "Controls reasoning depth via the Google Interactions API.",
+            noteArgonThinking: "Controls reasoning depth (Low, Medium, High) for Gemini 4 Argon via thinking_level in the Google Interactions API.",
             labelContext: "Extra Context & Expectations",
             tagOptional: "(Optional)",
             contextPlaceholder: "E.g. Focus on code examples, list top 5 takeaways for developers, or summarize for beginners...",
@@ -184,14 +196,20 @@
             descGemma4: "Modèle local privé via Ollama / Private local model (gemma4:12b / latest).",
             descFlash: "Exécution ultra-rapide et synthèse équilibrée / Fast &amp; balanced summary.",
             descArgon: "Raisonnement approfondi &amp; analyse complexe / Deep multimodal reasoning.",
+            tagCarbon: "Pointe / Frontier • 1M",
+            descCarbon: "Raisonnement de pointe maximal / Maximum frontier reasoning (1M).",
             labelLocalVariant: "Variante locale Gemma 4 / Local Variant:",
             btnRefreshModels: "Actualiser / Refresh",
             noteLocalServer: "Découvert depuis le serveur Ollama local / Loaded from local Ollama.",
-            labelArgonThinking: "Niveau de réflexion Argon / Thinking Level:",
+            labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon / Reasoning Depth (Interactions API):",
+            noteCarbonThinking: "Gemini 4 Carbon applique un raisonnement maximal par défaut / Engages deep frontier reasoning by default (Low, Medium, High via thinking_level).",
+            labelArgonThinking: "Niveau de réflexion Gemini 4 Argon / Reasoning Depth (Interactions API):",
+            labelFlashThinking: "Niveau de réflexion Gemini 3.8 Flash / Reasoning Depth (Interactions API):",
+            noteFlashThinking: "Contrôle la profondeur de raisonnement pour Gemini 3.8 Flash / Controls reasoning depth (Faible, Moyen, Élevé / Low, Medium, High via thinking_level).",
             optThinkingHigh: "Élevé / High (Raisonnement approfondi • Recommandé / Recommended)",
             optThinkingMedium: "Moyen / Medium (Équilibré / Balanced)",
             optThinkingLow: "Faible / Low (Rapide / Fast)",
-            noteArgonThinking: "Contrôle la profondeur de raisonnement via l'API Interactions de Google / Controls reasoning depth via Google Interactions API.",
+            noteArgonThinking: "Contrôle la profondeur de raisonnement pour Gemini 4 Argon / Controls reasoning depth (Low, Medium, High via thinking_level).",
             labelContext: "Contexte additionnel et attentes / Extra Context &amp; Expectations",
             tagOptional: "(Optionnel / Optional)",
             contextPlaceholder: "Ex. : Mettre l'accent sur le code, 5 points clés... / E.g. Focus on code, 5 takeaways...",
@@ -332,7 +350,12 @@
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
             if (dict[key]) {
-                el.innerHTML = dict[key];
+                if (el.tagName === 'OPTION') {
+                    el.text = dict[key];
+                    el.textContent = dict[key];
+                } else {
+                    el.innerHTML = dict[key];
+                }
             }
         });
 
@@ -353,6 +376,7 @@
 
         renderOllamaSelectOptions();
         updateOllamaModelNote(state.selectedOllamaVariant);
+        updateThinkingContainer();
         syncTranscriptToggleText();
     }
 
@@ -479,6 +503,51 @@
         document.getElementById('local-file-card').classList.remove('hidden');
     }
 
+    function updateThinkingContainer() {
+        const container = document.getElementById('argon-thinking-container');
+        if (!container) return;
+        const isGeminiReasoning = (
+            state.selectedModel === 'flash' ||
+            state.selectedModel === 'argon' ||
+            state.selectedModel === 'carbon'
+        );
+        container.classList.toggle('hidden', !isGeminiReasoning);
+        if (!isGeminiReasoning) return;
+
+        const dict = translations[state.currentLang] || translations.bi;
+        const labelEl = document.getElementById('argon-thinking-label-text');
+        const noteEl = document.getElementById('argon-thinking-note');
+
+        if (state.selectedModel === 'carbon') {
+            if (labelEl) {
+                labelEl.setAttribute('data-i18n', 'labelCarbonThinking');
+                if (dict.labelCarbonThinking) labelEl.textContent = dict.labelCarbonThinking;
+            }
+            if (noteEl) {
+                noteEl.setAttribute('data-i18n', 'noteCarbonThinking');
+                if (dict.noteCarbonThinking) noteEl.textContent = dict.noteCarbonThinking;
+            }
+        } else if (state.selectedModel === 'flash') {
+            if (labelEl) {
+                labelEl.setAttribute('data-i18n', 'labelFlashThinking');
+                if (dict.labelFlashThinking) labelEl.textContent = dict.labelFlashThinking;
+            }
+            if (noteEl) {
+                noteEl.setAttribute('data-i18n', 'noteFlashThinking');
+                if (dict.noteFlashThinking) noteEl.textContent = dict.noteFlashThinking;
+            }
+        } else {
+            if (labelEl) {
+                labelEl.setAttribute('data-i18n', 'labelArgonThinking');
+                if (dict.labelArgonThinking) labelEl.textContent = dict.labelArgonThinking;
+            }
+            if (noteEl) {
+                noteEl.setAttribute('data-i18n', 'noteArgonThinking');
+                if (dict.noteArgonThinking) noteEl.textContent = dict.noteArgonThinking;
+            }
+        }
+    }
+
     function selectModel(modelKey) {
         state.selectedModel = modelKey;
 
@@ -495,10 +564,7 @@
             ollamaVariantBox.classList.toggle('hidden', modelKey !== 'gemma4');
         }
 
-        const argonThinkingBox = document.getElementById('argon-thinking-container');
-        if (argonThinkingBox) {
-            argonThinkingBox.classList.toggle('hidden', modelKey !== 'argon');
-        }
+        updateThinkingContainer();
     }
 
     async function pasteFromClipboard() {
@@ -590,7 +656,20 @@
         const dict = translations[state.currentLang];
         const modelBadge = document.getElementById('res-model-used');
         if (modelBadge && modelUsedLabel) {
-            modelBadge.textContent = modelUsedLabel;
+            let displayLabel = modelUsedLabel;
+            const thinkingSelect = document.getElementById('argon-thinking-select');
+            const thinkingLevel = thinkingSelect ? thinkingSelect.value : 'high';
+            const isFr = state.currentLang === 'fr';
+            const isEn = state.currentLang === 'en';
+            const reasonPrefix = isFr ? 'réflexion' : (isEn ? 'reasoning' : 'réflexion / reasoning');
+            if (modelUsedLabel === 'carbon' || modelUsedLabel === 'gemini-4-carbon') {
+                displayLabel = `Gemini (gemini-4-carbon • ${reasonPrefix}: ${thinkingLevel})`;
+            } else if (modelUsedLabel === 'argon' || modelUsedLabel === 'gemini-4-argon') {
+                displayLabel = `Gemini (gemini-4-argon • ${reasonPrefix}: ${thinkingLevel})`;
+            } else if (modelUsedLabel === 'flash' || modelUsedLabel === 'gemini-3.8-flash') {
+                displayLabel = `Gemini (gemini-3.8-flash • ${reasonPrefix}: ${thinkingLevel})`;
+            }
+            modelBadge.textContent = displayLabel;
         }
 
         if (transcriptInfo) {
@@ -641,7 +720,11 @@
     function classifyAndShowModelError(errMsg) {
         const dict = translations[state.currentLang];
         let errTitle = dict.errorTitleDefault;
-        if (errMsg.includes("Ollama") || errMsg.includes("Local")) {
+        if (errMsg.includes("Whisper") || errMsg.includes("Offline Speech Model")) {
+            errTitle = state.currentLang === 'en'
+                ? "Offline Speech Model Not Cached (Whisper)"
+                : "Modèle Vocal Hors-Ligne Non Mis en Cache (Whisper)";
+        } else if (errMsg.includes("Ollama") || errMsg.includes("Local")) {
             errTitle = state.currentLang === 'en' ? "Local Model Error (Ollama)" : "Erreur Modèle Local (Ollama)";
         } else if (errMsg.includes("Gemini") || errMsg.includes("Remote")) {
             errTitle = state.currentLang === 'en' ? "Remote Model Error (Gemini)" : "Erreur Modèle Distant (Gemini)";
@@ -1111,7 +1194,17 @@
             });
         }
 
-        // AI Model native radio group
+        // AI Model selection cards & native radio group
+        document.querySelectorAll('.model-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const radio = card.querySelector('input[type="radio"]');
+                if (radio) {
+                    radio.checked = true;
+                    selectModel(radio.value);
+                }
+            });
+        });
+
         document.querySelectorAll('input[name="model"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 if (radio.checked) {
