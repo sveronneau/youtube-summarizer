@@ -70,18 +70,23 @@
             labelModelSelect: "Sélectionnez le modèle d'IA",
             tagLocalServer: "Local • Cantons",
             descGemma4: "Modèle local privé via Ollama (gemma4:12b / latest).",
-            descFlash: "Exécution ultra-rapide et synthèse équilibrée.",
+            tagHydrogen: "Rapide • 1M",
+            descHydrogen: "Vitesse élevée et raisonnement efficace (1M contexte).",
+            tagArgon: "Raisonnement • 1M",
             descArgon: "Raisonnement approfondi et analyse multimodale.",
             tagCarbon: "Pointe • 1M",
             descCarbon: "Raisonnement de pointe maximal (1M contexte).",
             labelLocalVariant: "Variante locale Gemma 4 :",
+            optGemmaLatest: "gemma4:latest (8.0B - Rapide et équilibré)",
+            optGemma12b: "gemma4:12b (11.9B - Plus puissant)",
             btnRefreshModels: "Actualiser",
             noteLocalServer: "Découvert depuis le serveur Ollama local.",
             labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon (API Interactions) :",
             noteCarbonThinking: "Gemini 4 Carbon engage un raisonnement maximal par défaut. Vous pouvez ajuster le niveau de réflexion (Faible, Moyen, Élevé) via thinking_level dans l'API Interactions.",
             labelArgonThinking: "Niveau de réflexion Gemini 4 Argon (API Interactions) :",
-            labelFlashThinking: "Niveau de réflexion Gemini 3.8 Flash (API Interactions) :",
-            noteFlashThinking: "Contrôle la profondeur de raisonnement (Faible, Moyen, Élevé) pour Gemini 3.8 Flash via thinking_level dans l'API Interactions.",
+            labelHydrogenThinking: "Niveau de réflexion Gemini 4 Hydrogen (API Interactions) :",
+            noteHydrogenThinking: "Gemini 4 Hydrogen prend en charge quatre niveaux de réflexion (Faible, Moyen, Élevé, Très élevé xhigh) via thinking_level dans l'API Interactions.",
+            optThinkingXHigh: "Très élevé (xhigh • Profondeur maximale Hydrogen)",
             optThinkingHigh: "Élevé (Raisonnement approfondi • Recommandé)",
             optThinkingMedium: "Moyen (Équilibré)",
             optThinkingLow: "Faible (Rapide)",
@@ -132,18 +137,23 @@
             labelModelSelect: "Select AI Model",
             tagLocalServer: "Local • Townships",
             descGemma4: "Private local model via Ollama (gemma4:12b / latest).",
-            descFlash: "Ultra-fast execution and balanced summary.",
+            tagHydrogen: "Fast • 1M",
+            descHydrogen: "High-speed, cost-efficient reasoning (1M context).",
+            tagArgon: "Reasoning • 1M",
             descArgon: "Deep reasoning and multimodal analysis.",
             tagCarbon: "Frontier • 1M",
             descCarbon: "Maximum frontier reasoning depth (1M context).",
             labelLocalVariant: "Select Local Gemma 4 Variant:",
+            optGemmaLatest: "gemma4:latest (8.0B - Fast & Balanced)",
+            optGemma12b: "gemma4:12b (11.9B - More Powerful)",
             btnRefreshModels: "Refresh",
             noteLocalServer: "Loaded from local Ollama server.",
             labelCarbonThinking: "Gemini 4 Carbon Reasoning Depth (Interactions API):",
             noteCarbonThinking: "Gemini 4 Carbon engages deep frontier reasoning by default. You can adjust the reasoning depth (Low, Medium, High) via thinking_level in the Google Interactions API.",
             labelArgonThinking: "Gemini 4 Argon Reasoning Depth (Interactions API):",
-            labelFlashThinking: "Gemini 3.8 Flash Reasoning Depth (Interactions API):",
-            noteFlashThinking: "Controls reasoning depth (Low, Medium, High) for Gemini 3.8 Flash via thinking_level in the Google Interactions API.",
+            labelHydrogenThinking: "Gemini 4 Hydrogen Reasoning Depth (Interactions API):",
+            noteHydrogenThinking: "Gemini 4 Hydrogen supports four reasoning levels (Low, Medium, High, Extra High xhigh) via thinking_level in the Google Interactions API.",
+            optThinkingXHigh: "Extra High (xhigh • Maximum Hydrogen Depth)",
             optThinkingHigh: "High (Deep Reasoning • Recommended)",
             optThinkingMedium: "Medium (Balanced)",
             optThinkingLow: "Low (Fast)",
@@ -194,18 +204,23 @@
             labelModelSelect: "Sélectionnez le modèle d'IA / Select AI Model",
             tagLocalServer: "Local • Cantons / Townships",
             descGemma4: "Modèle local privé via Ollama / Private local model (gemma4:12b / latest).",
-            descFlash: "Exécution ultra-rapide et synthèse équilibrée / Fast &amp; balanced summary.",
+            tagHydrogen: "Rapide / Fast • 1M",
+            descHydrogen: "Vitesse élevée &amp; raisonnement efficace (1M) / Fast &amp; efficient reasoning (1M).",
+            tagArgon: "Raisonnement / Reasoning • 1M",
             descArgon: "Raisonnement approfondi &amp; analyse complexe / Deep multimodal reasoning.",
             tagCarbon: "Pointe / Frontier • 1M",
             descCarbon: "Raisonnement de pointe maximal / Maximum frontier reasoning (1M).",
             labelLocalVariant: "Variante locale Gemma 4 / Local Variant:",
+            optGemmaLatest: "gemma4:latest (8.0B - Rapide & équilibré / Fast & Balanced)",
+            optGemma12b: "gemma4:12b (11.9B - Plus puissant / More Powerful)",
             btnRefreshModels: "Actualiser / Refresh",
             noteLocalServer: "Découvert depuis le serveur Ollama local / Loaded from local Ollama.",
             labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon / Reasoning Depth (Interactions API):",
             noteCarbonThinking: "Gemini 4 Carbon applique un raisonnement maximal par défaut / Engages deep frontier reasoning by default (Low, Medium, High via thinking_level).",
             labelArgonThinking: "Niveau de réflexion Gemini 4 Argon / Reasoning Depth (Interactions API):",
-            labelFlashThinking: "Niveau de réflexion Gemini 3.8 Flash / Reasoning Depth (Interactions API):",
-            noteFlashThinking: "Contrôle la profondeur de raisonnement pour Gemini 3.8 Flash / Controls reasoning depth (Faible, Moyen, Élevé / Low, Medium, High via thinking_level).",
+            labelHydrogenThinking: "Niveau de réflexion Gemini 4 Hydrogen / Reasoning Depth (Interactions API):",
+            noteHydrogenThinking: "Gemini 4 Hydrogen supporte 4 niveaux / Supports 4 levels (Faible, Moyen, Élevé, Très élevé / Low, Medium, High, xhigh via thinking_level).",
+            optThinkingXHigh: "Très élevé / Extra High (xhigh • Hydrogen)",
             optThinkingHigh: "Élevé / High (Raisonnement approfondi • Recommandé / Recommended)",
             optThinkingMedium: "Moyen / Medium (Équilibré / Balanced)",
             optThinkingLow: "Faible / Low (Rapide / Fast)",
@@ -507,44 +522,41 @@
         const container = document.getElementById('argon-thinking-container');
         if (!container) return;
         const isGeminiReasoning = (
-            state.selectedModel === 'flash' ||
+            state.selectedModel === 'hydrogen' ||
             state.selectedModel === 'argon' ||
             state.selectedModel === 'carbon'
         );
         container.classList.toggle('hidden', !isGeminiReasoning);
         if (!isGeminiReasoning) return;
 
+        const isHydrogen = state.selectedModel === 'hydrogen';
+        const xhighOption = document.getElementById('opt-thinking-xhigh');
+        const thinkingSelect = document.getElementById('argon-thinking-select');
+        if (xhighOption) {
+            xhighOption.hidden = !isHydrogen;
+            xhighOption.disabled = !isHydrogen;
+        }
+        if (!isHydrogen && thinkingSelect && thinkingSelect.value === 'xhigh') {
+            thinkingSelect.value = 'high';
+        }
+
         const dict = translations[state.currentLang] || translations.bi;
         const labelEl = document.getElementById('argon-thinking-label-text');
         const noteEl = document.getElementById('argon-thinking-note');
 
-        if (state.selectedModel === 'carbon') {
-            if (labelEl) {
-                labelEl.setAttribute('data-i18n', 'labelCarbonThinking');
-                if (dict.labelCarbonThinking) labelEl.textContent = dict.labelCarbonThinking;
-            }
-            if (noteEl) {
-                noteEl.setAttribute('data-i18n', 'noteCarbonThinking');
-                if (dict.noteCarbonThinking) noteEl.textContent = dict.noteCarbonThinking;
-            }
-        } else if (state.selectedModel === 'flash') {
-            if (labelEl) {
-                labelEl.setAttribute('data-i18n', 'labelFlashThinking');
-                if (dict.labelFlashThinking) labelEl.textContent = dict.labelFlashThinking;
-            }
-            if (noteEl) {
-                noteEl.setAttribute('data-i18n', 'noteFlashThinking');
-                if (dict.noteFlashThinking) noteEl.textContent = dict.noteFlashThinking;
-            }
-        } else {
-            if (labelEl) {
-                labelEl.setAttribute('data-i18n', 'labelArgonThinking');
-                if (dict.labelArgonThinking) labelEl.textContent = dict.labelArgonThinking;
-            }
-            if (noteEl) {
-                noteEl.setAttribute('data-i18n', 'noteArgonThinking');
-                if (dict.noteArgonThinking) noteEl.textContent = dict.noteArgonThinking;
-            }
+        const modelConfig = {
+            carbon: ['labelCarbonThinking', 'noteCarbonThinking'],
+            hydrogen: ['labelHydrogenThinking', 'noteHydrogenThinking'],
+            argon: ['labelArgonThinking', 'noteArgonThinking'],
+        };
+        const [labelKey, noteKey] = modelConfig[state.selectedModel] || modelConfig.argon;
+        if (labelEl) {
+            labelEl.setAttribute('data-i18n', labelKey);
+            if (dict[labelKey]) labelEl.textContent = dict[labelKey];
+        }
+        if (noteEl) {
+            noteEl.setAttribute('data-i18n', noteKey);
+            if (dict[noteKey]) noteEl.textContent = dict[noteKey];
         }
     }
 
@@ -664,6 +676,8 @@
             const reasonPrefix = isFr ? 'réflexion' : (isEn ? 'reasoning' : 'réflexion / reasoning');
             if (modelUsedLabel === 'carbon' || modelUsedLabel === 'gemini-4-carbon') {
                 displayLabel = `Gemini (gemini-4-carbon • ${reasonPrefix}: ${thinkingLevel})`;
+            } else if (modelUsedLabel === 'hydrogen' || modelUsedLabel === 'gemini-4-hydrogen') {
+                displayLabel = `Gemini (gemini-4-hydrogen • ${reasonPrefix}: ${thinkingLevel})`;
             } else if (modelUsedLabel === 'argon' || modelUsedLabel === 'gemini-4-argon') {
                 displayLabel = `Gemini (gemini-4-argon • ${reasonPrefix}: ${thinkingLevel})`;
             } else if (modelUsedLabel === 'flash' || modelUsedLabel === 'gemini-3.8-flash') {

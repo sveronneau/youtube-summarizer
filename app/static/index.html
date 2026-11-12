@@ -216,16 +216,16 @@
                                 <p class="model-desc" data-i18n="descGemma4">Modèle local privé via Ollama / Private local model (gemma4:12b / latest).</p>
                             </label>
 
-                            <label for="model-flash" class="model-card" id="card-flash">
-                                <input type="radio" id="model-flash" name="model" value="flash" class="visually-hidden">
+                            <label for="model-hydrogen" class="model-card" id="card-hydrogen">
+                                <input type="radio" id="model-hydrogen" name="model" value="hydrogen" class="visually-hidden">
                                 <div class="model-card-header">
-                                    <span class="model-icon" aria-hidden="true">⚡</span>
+                                    <span class="model-icon" aria-hidden="true">⚛️</span>
                                     <div>
-                                        <span class="model-title">Gemini Flash</span>
-                                        <span class="model-tag tag-flash">Gemini 3.8</span>
+                                        <span class="model-title">Gemini 4 Hydrogen</span>
+                                        <span class="model-tag tag-hydrogen" data-i18n="tagHydrogen">Rapide / Fast • 1M</span>
                                     </div>
                                 </div>
-                                <p class="model-desc" data-i18n="descFlash">Exécution ultra-rapide et synthèse équilibrée / Fast &amp; balanced summary.</p>
+                                <p class="model-desc" data-i18n="descHydrogen">Vitesse élevée &amp; raisonnement efficace (1M) / Fast &amp; efficient reasoning (1M).</p>
                             </label>
 
                             <label for="model-argon" class="model-card" id="card-argon">
@@ -234,7 +234,7 @@
                                     <span class="model-icon" aria-hidden="true">🧠</span>
                                     <div>
                                         <span class="model-title">Gemini 4 Argon</span>
-                                        <span class="model-tag tag-pro">Gemini 4 Argon</span>
+                                        <span class="model-tag tag-pro" data-i18n="tagArgon">Raisonnement / Reasoning • 1M</span>
                                     </div>
                                 </div>
                                 <p class="model-desc" data-i18n="descArgon">Raisonnement approfondi et analyse complexe / Deep multimodal reasoning.</p>
@@ -268,9 +268,8 @@
                             <div class="variant-select-wrapper">
                                 <select id="ollama-model-select" name="ollama_variant" class="form-control variant-select"
                                     aria-describedby="ollama-model-note">
-                                    <option value="gemma4:latest" selected>gemma4:latest (8.0B - Rapide &amp; équilibré / Fast &amp; Balanced)
-                                    </option>
-                                    <option value="gemma4:12b">gemma4:12b (11.9B - Plus puissant / More Powerful)</option>
+                                    <option value="gemma4:latest" data-i18n="optGemmaLatest" selected>gemma4:latest (8.0B - Rapide &amp; équilibré / Fast &amp; Balanced)</option>
+                                    <option value="gemma4:12b" data-i18n="optGemma12b">gemma4:12b (11.9B - Plus puissant / More Powerful)</option>
                                 </select>
                             </div>
                             <small class="variant-note" id="ollama-model-note" data-i18n="noteLocalServer">Découvert depuis
@@ -288,6 +287,7 @@
                             <div class="variant-select-wrapper">
                                 <select id="argon-thinking-select" name="thinking_level" class="form-control variant-select"
                                     aria-describedby="argon-thinking-note">
+                                    <option value="xhigh" id="opt-thinking-xhigh" data-i18n="optThinkingXHigh" hidden>Très élevé / Extra High (xhigh • Hydrogen)</option>
                                     <option value="high" data-i18n="optThinkingHigh" selected>Élevé / High (Raisonnement approfondi • Recommandé / Recommended)</option>
                                     <option value="medium" data-i18n="optThinkingMedium">Moyen / Medium (Équilibré / Balanced)</option>
                                     <option value="low" data-i18n="optThinkingLow">Faible / Low (Rapide / Fast)</option>
