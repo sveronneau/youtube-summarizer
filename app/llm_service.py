@@ -558,6 +558,7 @@ async def generate_summary_with_gemini(
     thinking_level: str = "high",
     youtube_url: Optional[str] = None,
     images_b64: Optional[List[str]] = None,
+    lang: str = "bi",
 ) -> Dict[str, Any]:
     """
     Call Google Gemini API with comprehensive error handling.
@@ -685,8 +686,17 @@ async def generate_summary_with_gemini(
             last_err = _scrub_secret(str(exc), api_key)
 
     if output_text:
+        reasoning_tag = (
+            f"réflexion : {thinking_level}"
+            if lang == "fr"
+            else (
+                f"reasoning: {thinking_level}"
+                if lang == "en"
+                else f"réflexion / reasoning: {thinking_level}"
+            )
+        )
         model_label = (
-            f"Gemini ({target_model} • reasoning: {thinking_level})"
+            f"Gemini ({target_model} • {reasoning_tag})"
             if is_gemini4
             else f"Gemini ({target_model})"
         )
@@ -706,6 +716,7 @@ async def _stream_summary_with_gemini(
     thinking_level: str = "high",
     youtube_url: Optional[str] = None,
     images_b64: Optional[List[str]] = None,
+    lang: str = "bi",
 ) -> AsyncIterator[Dict[str, Any]]:
     """Stream tokens from Gemini Flash, Gemini 4 Argon, or Gemini 4 Carbon."""
     api_key = (
@@ -733,6 +744,7 @@ async def _stream_summary_with_gemini(
             thinking_level=thinking_level,
             youtube_url=youtube_url,
             images_b64=images_b64,
+            lang=lang,
         )
         if res.get("success"):
             yield {"type": "chunk", "delta": res["summary"]}
@@ -853,40 +865,54 @@ def _build_summary_prompt(
     if song_mode:
         if lang == "fr":
             lang_instruction = (
-                "Write the entire analysis in **French (Français)**. "
-                "Use the section headings: `## 🎵 Aperçu & Sens de la Chanson`, `## 🎤 Thèmes, Ambiance & Paroles Clés`, "
-                "and if custom context is provided, `## Analyse Contextuelle`."
+                "EXIGENCE STRICTE DE LANGUE : Rédigez l'intégralité de l'analyse exclusivement en **Français**. "
+                "N'incluez aucun texte en anglais ni de bilinguisme. "
+                "Utilisez exactement les titres de sections suivants en français : "
+                "`## 🎵 Aperçu & Sens de la Chanson`, `## 🎤 Thèmes, Ambiance & Paroles Clés`, "
+                "et si un contexte personnalisé est fourni, `## Analyse Contextuelle`."
             )
         elif lang == "en":
             lang_instruction = (
-                "Write the entire analysis in **English**. "
-                "Use the section headings: `## 🎵 Song Overview & Meaning`, `## 🎤 Themes, Mood & Standout Lyrics`, "
+                "STRICT LANGUAGE REQUIREMENT: Write the entire analysis exclusively in **English**. "
+                "Do NOT include any French text or bilingual content. "
+                "Use exactly these section headings in English: "
+                "`## 🎵 Song Overview & Meaning`, `## 🎤 Themes, Mood & Standout Lyrics`, "
                 "and if custom context is provided, `## Custom Context Insights`."
             )
         else:
             lang_instruction = (
-                "Write the analysis in the **same language as the song/lyrics** (or Bilingual French/English if appropriate), "
-                "with bilingual section headings: `## 🎵 Aperçu & Sens / Song Overview & Meaning`, "
-                "`## 🎤 Thèmes & Paroles Clés / Themes & Standout Lyrics`, and if applicable `## Contexte / Custom Context Insights`."
+                "EXIGENCE STRICTE DE LANGUE / STRICT LANGUAGE REQUIREMENT : Rédigez une analyse **Bilingue structurée (Français en premier, puis Anglais)** / "
+                "Write a structured **Bilingual (French first, then English)** analysis. "
+                "Pour chaque section, présentez obligatoirement le paragraphe en français en premier, suivi de son équivalent en anglais (`Français d'abord, puis Anglais`). "
+                "Utilisez les titres bilingues avec le français en tête : "
+                "`## 🎵 Aperçu & Sens / Song Overview & Meaning`, `## 🎤 Thèmes & Paroles Clés / Themes & Standout Lyrics`, "
+                "et le cas échéant `## Contexte / Custom Context Insights`."
             )
     else:
         if lang == "fr":
             lang_instruction = (
-                "Write the entire summary in **French (Français)**. "
-                "Use the section headings: `## Résumé Exécutif`, `## Points Clés & Concepts Principaux`, "
-                "and if custom context is provided, `## Analyse Contextuelle`."
+                "EXIGENCE STRICTE DE LANGUE : Rédigez l'intégralité du résumé exclusivement en **Français**. "
+                "N'incluez aucun texte en anglais ni de bilinguisme. Tout le contenu, titres et puces doivent être en français uniquement. "
+                "Utilisez exactement les titres de sections suivants en français : "
+                "`## Résumé Exécutif`, `## Points Clés & Concepts Principaux`, "
+                "et si un contexte personnalisé est fourni, `## Analyse Contextuelle`."
             )
         elif lang == "en":
             lang_instruction = (
-                "Write the entire summary in **English**. "
-                "Use the section headings: `## Executive Summary`, `## Key Takeaways & Core Concepts`, "
+                "STRICT LANGUAGE REQUIREMENT: Write the entire summary exclusively in **English**. "
+                "Do NOT include any French text or bilingual content. All content, headings, and bullet points must be in English only. "
+                "Use exactly these section headings in English: "
+                "`## Executive Summary`, `## Key Takeaways & Core Concepts`, "
                 "and if custom context is provided, `## Custom Context Insights`."
             )
         else:
             lang_instruction = (
-                "Write the summary in the **same language as the transcript** (or Bilingual French/English if appropriate), "
-                "with bilingual section headings: `## Résumé Exécutif / Executive Summary`, "
-                "`## Points Clés / Key Takeaways`, and if applicable `## Contexte / Custom Context Insights`."
+                "EXIGENCE STRICTE DE LANGUE / STRICT LANGUAGE REQUIREMENT : Rédigez un résumé **Bilingue structuré (Français en premier, puis Anglais)** / "
+                "Write a structured **Bilingual (French first, then English)** summary. "
+                "Pour chaque section, présentez obligatoirement le paragraphe ou la puce en français en premier, suivi de sa version en anglais (`Français d'abord, puis Anglais`). "
+                "Utilisez les titres bilingues avec le français en tête : "
+                "`## Résumé Exécutif / Executive Summary`, `## Points Clés / Key Takeaways`, "
+                "et le cas échéant `## Contexte / Custom Context Insights`."
             )
 
     default_context = (
@@ -927,11 +953,43 @@ def _build_summary_prompt(
             "creator/artist, and the user's expectations/context above.]"
         )
 
-    role_intro = (
-        "You are an expert music and lyrics analyst providing structured insights into songs, their lyrics, themes, and emotional narrative."
-        if song_mode
-        else "You are an expert video summarizer providing clean, structured summaries for video content."
-    )
+    if lang == "fr":
+        role_intro = (
+            "Vous êtes un expert en analyse musicale et de paroles de chansons fournissant des analyses structurées en français."
+            if song_mode
+            else "Vous êtes un expert en synthèse vidéo fournissant des résumés clairs et structurés en français."
+        )
+        formatting_rules = f"""### Instructions de formatage et de langue (OBLIGATOIRE) :
+1. {lang_instruction}
+2. Fournir un **Aperçu** concis (2-3 phrases expliquant le sujet principal du {"morceau" if song_mode else "contenu vidéo"}).
+3. Détailler les **{"Thèmes, narration et paroles marquantes" if song_mode else "Points clés et concepts essentiels"}** sous forme de puces claires.
+4. Si applicable selon les attentes de l'utilisateur, aborder ses questions ou points d'attention dans une section dédiée.
+5. Utiliser un formatage Markdown soigné avec des titres clairs, du texte en gras pour les termes clés et des listes à puces.
+"""
+    elif lang == "en":
+        role_intro = (
+            "You are an expert music and lyrics analyst providing structured insights in English."
+            if song_mode
+            else "You are an expert video summarizer providing clean, structured summaries in English."
+        )
+        formatting_rules = f"""### Response Formatting & Language Instructions (MANDATORY):
+1. {lang_instruction}
+2. Provide a concise **Overview** (2-3 sentences explaining what the {"song" if song_mode else "video"} is about).
+3. Detail the **{"Themes, Narrative & Standout Lyrics" if song_mode else "Key Takeaways & Core Concepts"}** using bullet points.
+4. If applicable based on user expectations, address their specific questions or focus areas in a dedicated section.
+5. Use clean Markdown formatting with clear section headers, bold text for key terms, and bullet points.
+"""
+    else:
+        role_intro = (
+            "Vous êtes un expert bilingue en analyse de contenu / You are a bilingual video and media summarizer (Français d'abord / French first)."
+        )
+        formatting_rules = f"""### Instructions de formatage et de langue / Response Formatting & Language Instructions (STRICT):
+1. {lang_instruction}
+2. Fournir un aperçu concis (Français d'abord, puis Anglais) / Provide a concise overview (French first, then English).
+3. Détailler les points clés sous forme de puces (Français d'abord, puis Anglais) / Detail key takeaways using bullet points (French first, then English).
+4. Répondre aux attentes spécifiques dans une section dédiée / Address user expectations in a dedicated section.
+5. Utiliser un format Markdown propre et structuré / Clean, well-structured Markdown formatting.
+"""
 
     prompt = f"""{role_intro}
 
@@ -950,13 +1008,8 @@ def _build_summary_prompt(
 
 ---
 
-### Response Formatting & Language Instructions:
-1. {lang_instruction}
-2. Provide a concise **Overview** (2-3 sentences explaining what the {"song" if song_mode else "video"} is about).
-3. Detail the **{"Themes, Narrative & Standout Lyrics" if song_mode else "Key Takeaways & Core Concepts"}** using bullet points.
-4. If applicable based on user expectations, address their specific questions or focus areas in a dedicated section.
-5. Use clean Markdown formatting with clear section headers, bold text for key terms, and bullet points.
-"""
+{formatting_rules}"""
+    return prompt, title, author, url
     return prompt, title, author, url
 
 
@@ -1001,6 +1054,7 @@ async def generate_youtube_summary(
                 if not (transcript_text and transcript_text.strip())
                 else None,
                 images_b64=video_frames,
+                lang=lang,
             )
 
         if result.get("success"):
@@ -1054,6 +1108,7 @@ async def stream_youtube_summary(
                 if not (transcript_text and transcript_text.strip())
                 else None,
                 images_b64=video_frames,
+                lang=lang,
             ):
                 yield event
     except Exception as exc:

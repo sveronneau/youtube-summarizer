@@ -509,11 +509,23 @@
         const noteEl = document.getElementById('argon-thinking-note');
 
         if (state.selectedModel === 'carbon') {
-            if (labelEl && dict.labelCarbonThinking) labelEl.textContent = dict.labelCarbonThinking;
-            if (noteEl && dict.noteCarbonThinking) noteEl.textContent = dict.noteCarbonThinking;
+            if (labelEl) {
+                labelEl.setAttribute('data-i18n', 'labelCarbonThinking');
+                if (dict.labelCarbonThinking) labelEl.textContent = dict.labelCarbonThinking;
+            }
+            if (noteEl) {
+                noteEl.setAttribute('data-i18n', 'noteCarbonThinking');
+                if (dict.noteCarbonThinking) noteEl.textContent = dict.noteCarbonThinking;
+            }
         } else {
-            if (labelEl && dict.labelArgonThinking) labelEl.textContent = dict.labelArgonThinking;
-            if (noteEl && dict.noteArgonThinking) noteEl.textContent = dict.noteArgonThinking;
+            if (labelEl) {
+                labelEl.setAttribute('data-i18n', 'labelArgonThinking');
+                if (dict.labelArgonThinking) labelEl.textContent = dict.labelArgonThinking;
+            }
+            if (noteEl) {
+                noteEl.setAttribute('data-i18n', 'noteArgonThinking');
+                if (dict.noteArgonThinking) noteEl.textContent = dict.noteArgonThinking;
+            }
         }
     }
 
@@ -628,10 +640,13 @@
             let displayLabel = modelUsedLabel;
             const thinkingSelect = document.getElementById('argon-thinking-select');
             const thinkingLevel = thinkingSelect ? thinkingSelect.value : 'high';
+            const isFr = state.currentLang === 'fr';
+            const isEn = state.currentLang === 'en';
+            const reasonPrefix = isFr ? 'réflexion' : (isEn ? 'reasoning' : 'réflexion / reasoning');
             if (modelUsedLabel === 'carbon' || modelUsedLabel === 'gemini-4-carbon') {
-                displayLabel = `Gemini (gemini-4-carbon • reasoning: ${thinkingLevel})`;
+                displayLabel = `Gemini (gemini-4-carbon • ${reasonPrefix}: ${thinkingLevel})`;
             } else if (modelUsedLabel === 'argon' || modelUsedLabel === 'gemini-4-argon') {
-                displayLabel = `Gemini (gemini-4-argon • reasoning: ${thinkingLevel})`;
+                displayLabel = `Gemini (gemini-4-argon • ${reasonPrefix}: ${thinkingLevel})`;
             }
             modelBadge.textContent = displayLabel;
         }
