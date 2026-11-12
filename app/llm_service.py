@@ -24,6 +24,9 @@ MODEL_MAPPING = {
     "gemma": "gemma4:latest",
     "ollama": "gemma4:latest",
     "flash": "gemini-3.8-flash",
+    "hydrogen": "gemini-4-hydrogen",
+    "gemini-hydrogen": "gemini-4-hydrogen",
+    "gemini-4-hydrogen": "gemini-4-hydrogen",
     "argon": "gemini-4-argon",
     "gemini-argon": "gemini-4-argon",
     "gemini-4-argon": "gemini-4-argon",
@@ -92,6 +95,8 @@ def resolve_model_name(requested_model: str) -> str:
         return "gemma4:latest"
     if "carbon" in req_lower:
         return "gemini-4-carbon"
+    if "hydrogen" in req_lower:
+        return "gemini-4-hydrogen"
     if "argon" in req_lower or "pro" in req_lower:
         return "gemini-4-argon"
     if "flash" in req_lower:
@@ -100,15 +105,15 @@ def resolve_model_name(requested_model: str) -> str:
 
 
 def _is_gemini4_reasoning_model(model_name: str) -> bool:
-    """Return True if the resolved model is Gemini 4 Argon or Gemini 4 Carbon."""
+    """Return True if the resolved model is Gemini 4 Hydrogen, Argon, or Carbon."""
     low = model_name.lower()
-    return "argon" in low or "carbon" in low
+    return "hydrogen" in low or "argon" in low or "carbon" in low
 
 
 def _is_gemini_reasoning_model(model_name: str) -> bool:
-    """Return True if the resolved model supports configurable thinking_level (Flash 3.8, Argon 4, Carbon 4)."""
+    """Return True if the resolved model supports configurable thinking_level."""
     low = model_name.lower()
-    return "flash" in low or "argon" in low or "carbon" in low
+    return "flash" in low or "hydrogen" in low or "argon" in low or "carbon" in low
 
 
 def _canonical_gemini4_model(model_name: str) -> str:
@@ -116,9 +121,21 @@ def _canonical_gemini4_model(model_name: str) -> str:
     low = model_name.lower()
     if "carbon" in low:
         return "gemini-4-carbon"
+    if "hydrogen" in low:
+        return "gemini-4-hydrogen"
     if "flash" in low:
         return "gemini-3.8-flash"
     return "gemini-4-argon"
+
+
+def _normalize_thinking_level(model_name: str, thinking_level: str) -> str:
+    """Clamp thinking_level to valid values for the target model ('xhigh' is Hydrogen-only)."""
+    lvl = (thinking_level or "high").strip().lower()
+    if "hydrogen" in model_name.lower():
+        return lvl if lvl in ("low", "medium", "high", "xhigh") else "high"
+    if lvl == "xhigh":
+        return "high"
+    return lvl if lvl in ("low", "medium", "high") else "high"
 
 
 def _fit_transcript_to_budget(
@@ -512,8 +529,8 @@ def _sync_sdk_generate(
     """Run synchronous google-genai SDK calls inside a worker thread to avoid blocking the event loop."""
     client = _get_gemini_client(api_key)
     if use_interactions and hasattr(client, "interactions") and not youtube_url:
-        level = thinking_level if thinking_level in ("low", "medium", "high") else "high"
         target_model = _canonical_gemini4_model(model_name)
+        level = _normalize_thinking_level(target_model, thinking_level)
         interaction = client.interactions.create(
             model=target_model,
             input=_build_interactions_input(prompt, images_b64),
@@ -620,11 +637,7 @@ async def generate_summary_with_gemini(
                     "Api-Revision": "2026-05-20",
                     "Content-Type": "application/json",
                 }
-                level = (
-                    thinking_level
-                    if thinking_level in ("low", "medium", "high")
-                    else "high"
-                )
+                level = _normalize_thinking_level(target_model, thinking_level)
                 payload = {
                     "model": target_model,
                     "input": _build_interactions_input(prompt, images_b64),
@@ -697,13 +710,14 @@ async def generate_summary_with_gemini(
             last_err = _scrub_secret(str(exc), api_key)
 
     if output_text:
+        effective_level = _normalize_thinking_level(target_model, thinking_level)
         reasoning_tag = (
-            f"réflexion : {thinking_level}"
+            f"réflexion : {effective_level}"
             if lang == "fr"
             else (
-                f"reasoning: {thinking_level}"
+                f"reasoning: {effective_level}"
                 if lang == "en"
-                else f"réflexion / reasoning: {thinking_level}"
+                else f"réflexion / reasoning: {effective_level}"
             )
         )
         model_label = (

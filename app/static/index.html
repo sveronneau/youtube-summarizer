@@ -228,6 +228,18 @@
                                 <p class="model-desc" data-i18n="descFlash">Exécution ultra-rapide et synthèse équilibrée / Fast &amp; balanced summary.</p>
                             </label>
 
+                            <label for="model-hydrogen" class="model-card" id="card-hydrogen">
+                                <input type="radio" id="model-hydrogen" name="model" value="hydrogen" class="visually-hidden">
+                                <div class="model-card-header">
+                                    <span class="model-icon" aria-hidden="true">⚛️</span>
+                                    <div>
+                                        <span class="model-title">Gemini 4 Hydrogen</span>
+                                        <span class="model-tag tag-hydrogen" data-i18n="tagHydrogen">Rapide / Fast • 1M</span>
+                                    </div>
+                                </div>
+                                <p class="model-desc" data-i18n="descHydrogen">Vitesse élevée &amp; raisonnement efficace (1M) / Fast &amp; efficient reasoning (1M).</p>
+                            </label>
+
                             <label for="model-argon" class="model-card" id="card-argon">
                                 <input type="radio" id="model-argon" name="model" value="argon" class="visually-hidden">
                                 <div class="model-card-header">
@@ -288,6 +300,7 @@
                             <div class="variant-select-wrapper">
                                 <select id="argon-thinking-select" name="thinking_level" class="form-control variant-select"
                                     aria-describedby="argon-thinking-note">
+                                    <option value="xhigh" id="opt-thinking-xhigh" data-i18n="optThinkingXHigh" hidden>Très élevé / Extra High (xhigh • Hydrogen)</option>
                                     <option value="high" data-i18n="optThinkingHigh" selected>Élevé / High (Raisonnement approfondi • Recommandé / Recommended)</option>
                                     <option value="medium" data-i18n="optThinkingMedium">Moyen / Medium (Équilibré / Balanced)</option>
                                     <option value="low" data-i18n="optThinkingLow">Faible / Low (Rapide / Fast)</option>

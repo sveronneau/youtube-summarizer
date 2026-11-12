@@ -71,6 +71,8 @@ async def run_endpoint_tests() -> None:
         assert res_index.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
         assert res_index.headers.get("X-Frame-Options") == "SAMEORIGIN"
         assert "/static/vendor/marked.min.js" in res_index.text
+        assert 'id="card-hydrogen"' in res_index.text
+        assert 'value="hydrogen"' in res_index.text
         assert 'id="card-carbon"' in res_index.text
         assert 'value="carbon"' in res_index.text
         print("✅ Index route & security headers verified.")
