@@ -203,7 +203,7 @@
                             <i class="fa-solid fa-brain icon-ai" aria-hidden="true"></i>
                             <span data-i18n="labelModelSelect">Sélectionnez le modèle d'IA / Select AI Model</span>
                         </legend>
-                        <div class="model-cards-grid model-cards-grid-3">
+                        <div class="model-cards-grid model-cards-grid-4">
                             <label for="model-gemma4" class="model-card active" id="card-gemma4">
                                 <input type="radio" id="model-gemma4" name="model" value="gemma4" class="visually-hidden" checked>
                                 <div class="model-card-header">
@@ -241,6 +241,18 @@
                                 </div>
                                 <p class="model-desc" data-i18n="descArgon">Raisonnement approfondi et analyse complexe.</p>
                             </label>
+
+                            <label for="model-carbon" class="model-card" id="card-carbon">
+                                <input type="radio" id="model-carbon" name="model" value="carbon" class="visually-hidden">
+                                <div class="model-card-header">
+                                    <span class="model-icon" aria-hidden="true">💎</span>
+                                    <div>
+                                        <span class="model-title">Gemini 4 Carbon</span>
+                                        <span class="model-tag tag-carbon">Gemini 4 Carbon</span>
+                                    </div>
+                                </div>
+                                <p class="model-desc" data-i18n="descCarbon">Raisonnement de pointe maximal (1M contexte).</p>
+                            </label>
                         </div>
 
                         <!-- Dynamic Local Ollama Model Variant Selector -->
@@ -267,12 +279,12 @@
                                 le serveur Ollama local.</small>
                         </div>
 
-                        <!-- Argon Thinking Level Selector (Interactions API) -->
+                        <!-- Gemini 4 Thinking Level Selector (Interactions API: Argon & Carbon) -->
                         <div id="argon-thinking-container" class="ollama-variant-box hidden">
                             <div class="variant-header">
                                 <label for="argon-thinking-select" class="variant-label">
                                     <i class="fa-solid fa-brain icon-chip" aria-hidden="true"></i>
-                                    <span data-i18n="labelArgonThinking">Niveau de réflexion Argon / Thinking Level:</span>
+                                    <span data-i18n="labelArgonThinking">Niveau de réflexion Gemini 4 (Argon / Carbon) :</span>
                                 </label>
                             </div>
                             <div class="variant-select-wrapper">

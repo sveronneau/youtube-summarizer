@@ -8,12 +8,18 @@ import av
 from PIL import Image
 
 from app.llm_service import (
+    _build_interactions_input,
     _compute_ollama_options,
     _fit_transcript_to_budget,
     _format_gemini_error,
+    _is_gemini4_reasoning_model,
     resolve_model_name,
 )
-from app.transcription_service import extract_video_frames_base64
+from app.transcription_service import (
+    extract_video_frames_base64,
+    has_audio_stream,
+    transcribe_local_video,
+)
 from app.youtube_service import (
     _has_meaningful_lyrics,
     close_youtube_client,
@@ -61,8 +67,16 @@ def test_model_resolution() -> None:
     assert resolve_model_name("flash") == "gemini-3.8-flash"
     assert resolve_model_name("argon") == "gemini-4-argon"
     assert resolve_model_name("pro") == "gemini-4-argon"
+    assert resolve_model_name("carbon") == "gemini-4-carbon"
+    assert resolve_model_name("gemini-carbon") == "gemini-4-carbon"
     assert resolve_model_name("gemini-3.8-flash") == "gemini-3.8-flash"
     assert resolve_model_name("gemini-4-argon") == "gemini-4-argon"
+    assert resolve_model_name("gemini-4-carbon") == "gemini-4-carbon"
+    assert _is_gemini4_reasoning_model("gemini-4-argon")
+    assert _is_gemini4_reasoning_model("gemini-4-carbon")
+    assert not _is_gemini4_reasoning_model("gemini-3.8-flash")
+    mm_input = _build_interactions_input("Summarize frames", ["YWJj"])
+    assert isinstance(mm_input, list) and mm_input[0]["type"] == "image"
     print("✅ Model resolution tests passed.")
 
 
@@ -125,6 +139,9 @@ def test_visual_video_frame_extraction() -> None:
                 container.mux(packet)
             container.close()
 
+            assert has_audio_stream(video_path) is False
+            no_audio_res = transcribe_local_video(video_path)
+            assert no_audio_res["reason"] == "no_audio_stream"
             frames_b64 = extract_video_frames_base64(video_path, max_frames=4)
             assert 0 < len(frames_b64) <= 4, f"Unexpected frame count for {name}"
 

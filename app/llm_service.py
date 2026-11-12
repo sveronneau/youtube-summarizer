@@ -27,6 +27,9 @@ MODEL_MAPPING = {
     "argon": "gemini-4-argon",
     "gemini-argon": "gemini-4-argon",
     "gemini-4-argon": "gemini-4-argon",
+    "carbon": "gemini-4-carbon",
+    "gemini-carbon": "gemini-4-carbon",
+    "gemini-4-carbon": "gemini-4-carbon",
     "pro": "gemini-4-argon",
     "gemini-flash": "gemini-3.8-flash",
     "gemini-3.8-flash": "gemini-3.8-flash",
@@ -87,11 +90,24 @@ def resolve_model_name(requested_model: str) -> str:
         return MODEL_MAPPING[req_lower]
     if "gemma" in req_lower or "ollama" in req_lower:
         return "gemma4:latest"
+    if "carbon" in req_lower:
+        return "gemini-4-carbon"
     if "argon" in req_lower or "pro" in req_lower:
         return "gemini-4-argon"
     if "flash" in req_lower:
         return "gemini-3.8-flash"
     return requested_model
+
+
+def _is_gemini4_reasoning_model(model_name: str) -> bool:
+    """Return True if the resolved model is Gemini 4 Argon or Gemini 4 Carbon."""
+    low = model_name.lower()
+    return "argon" in low or "carbon" in low
+
+
+def _canonical_gemini4_model(model_name: str) -> str:
+    """Normalize a Gemini 4 reasoning model name to its exact API model string."""
+    return "gemini-4-carbon" if "carbon" in model_name.lower() else "gemini-4-argon"
 
 
 def _fit_transcript_to_budget(
@@ -459,22 +475,37 @@ def _format_gemini_error(model_name: str, last_err: Optional[str], api_key: str)
     }
 
 
+def _build_interactions_input(
+    prompt: str, images_b64: Optional[List[str]] = None
+) -> Any:
+    """Format prompt and optional inline base64 keyframes for the Google Interactions API."""
+    if not images_b64:
+        return prompt
+    content_items: List[Dict[str, str]] = [
+        {"type": "image", "data": b64, "mime_type": "image/jpeg"}
+        for b64 in images_b64
+    ]
+    content_items.append({"type": "text", "text": prompt})
+    return content_items
+
+
 def _sync_sdk_generate(
     api_key: str,
     model_name: str,
     prompt: str,
-    is_argon: bool,
+    use_interactions: bool,
     thinking_level: str,
     youtube_url: Optional[str] = None,
     images_b64: Optional[List[str]] = None,
 ) -> Optional[str]:
     """Run synchronous google-genai SDK calls inside a worker thread to avoid blocking the event loop."""
     client = _get_gemini_client(api_key)
-    if is_argon and hasattr(client, "interactions") and not images_b64:
+    if use_interactions and hasattr(client, "interactions") and not youtube_url:
         level = thinking_level if thinking_level in ("low", "medium", "high") else "high"
+        target_model = _canonical_gemini4_model(model_name)
         interaction = client.interactions.create(
-            model="gemini-4-argon",
-            input=prompt,
+            model=target_model,
+            input=_build_interactions_input(prompt, images_b64),
             generation_config={"thinking_level": level},
         )
         return getattr(interaction, "output_text", None)
@@ -530,8 +561,9 @@ async def generate_summary_with_gemini(
 ) -> Dict[str, Any]:
     """
     Call Google Gemini API with comprehensive error handling.
-    For Gemini 4 Argon, uses the Interactions API with configurable thinking_level (low/medium/high)
-    and strictly avoids deprecated parameters (temperature, top_p, top_k, thinking_budget).
+    For Gemini 4 Argon (`gemini-4-argon`) and Gemini 4 Carbon (`gemini-4-carbon`), uses the
+    Interactions API with configurable `thinking_level` (`low`, `medium`, `high`) and avoids
+    deprecated parameters (`temperature`, `top_p`, `top_k`, `thinking_budget`).
     """
     api_key = (
         api_key_override
@@ -547,18 +579,19 @@ async def generate_summary_with_gemini(
             ),
         }
 
-    is_argon = "argon" in model_name.lower()
+    is_gemini4 = _is_gemini4_reasoning_model(model_name)
+    target_model = _canonical_gemini4_model(model_name) if is_gemini4 else model_name
     output_text = None
     last_err = None
 
-    if is_argon:
+    if is_gemini4:
         try:
             client = _get_gemini_client(api_key)
-            if hasattr(client, "interactions") and not images_b64:
+            if hasattr(client, "interactions") and not youtube_url:
                 output_text = await asyncio.to_thread(
                     _sync_sdk_generate,
                     api_key,
-                    "gemini-4-argon",
+                    target_model,
                     prompt,
                     True,
                     thinking_level,
@@ -568,10 +601,11 @@ async def generate_summary_with_gemini(
         except Exception as exc:
             last_err = _scrub_secret(str(exc), api_key)
 
-        if not output_text and not images_b64 and not _is_fatal_api_error(last_err or ""):
+        if not output_text and not youtube_url and not _is_fatal_api_error(last_err or ""):
             try:
                 headers = {
                     "x-goog-api-key": api_key,
+                    "Api-Revision": "2026-05-20",
                     "Content-Type": "application/json",
                 }
                 level = (
@@ -580,8 +614,8 @@ async def generate_summary_with_gemini(
                     else "high"
                 )
                 payload = {
-                    "model": "gemini-4-argon",
-                    "input": prompt,
+                    "model": target_model,
+                    "input": _build_interactions_input(prompt, images_b64),
                     "generation_config": {"thinking_level": level},
                 }
                 http_client = get_llm_http_client()
@@ -625,7 +659,7 @@ async def generate_summary_with_gemini(
                 output_text = await asyncio.to_thread(
                     _sync_sdk_generate,
                     api_key,
-                    "gemini-4-argon",
+                    target_model,
                     prompt,
                     False,
                     thinking_level,
@@ -640,7 +674,7 @@ async def generate_summary_with_gemini(
             output_text = await asyncio.to_thread(
                 _sync_sdk_generate,
                 api_key,
-                model_name,
+                target_model,
                 prompt,
                 False,
                 thinking_level,
@@ -654,10 +688,10 @@ async def generate_summary_with_gemini(
         return {
             "success": True,
             "summary": output_text.strip(),
-            "model_used": f"Gemini ({model_name})",
+            "model_used": f"Gemini ({target_model})",
         }
 
-    return _format_gemini_error(model_name, last_err, api_key)
+    return _format_gemini_error(target_model, last_err, api_key)
 
 
 async def _stream_summary_with_gemini(
@@ -668,7 +702,7 @@ async def _stream_summary_with_gemini(
     youtube_url: Optional[str] = None,
     images_b64: Optional[List[str]] = None,
 ) -> AsyncIterator[Dict[str, Any]]:
-    """Stream tokens from Gemini Flash via `generate_content_stream` (or Argon Interactions API)."""
+    """Stream tokens from Gemini Flash, Gemini 4 Argon, or Gemini 4 Carbon."""
     api_key = (
         api_key_override
         or os.getenv("GEMINI_API_KEY")
@@ -684,11 +718,12 @@ async def _stream_summary_with_gemini(
         }
         return
 
-    is_argon = "argon" in model_name.lower()
-    if is_argon:
+    is_gemini4 = _is_gemini4_reasoning_model(model_name)
+    target_model = _canonical_gemini4_model(model_name) if is_gemini4 else model_name
+    if is_gemini4:
         res = await generate_summary_with_gemini(
             prompt=prompt,
-            model_name=model_name,
+            model_name=target_model,
             api_key_override=api_key,
             thinking_level=thinking_level,
             youtube_url=youtube_url,

@@ -73,7 +73,7 @@ body {
 
 /* App Container */
 .app-container {
-    max-width: 860px;
+    max-width: 920px;
     margin: 0 auto;
     position: relative;
     z-index: 1;
@@ -486,33 +486,35 @@ body {
     color: var(--sherb-green-dark);
 }
 
-/* Model Cards Grid */
+/* Model Cards Grid (Intrinsic Auto-Fit + Subgrid Alignment) */
 .model-cards-grid {
+    inline-size: 100%;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    grid-auto-rows: auto 1fr;
+    gap: 12px;
 }
 
-.model-cards-grid-3 {
+.model-cards-grid-4 {
+    inline-size: 100%;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-}
-
-@media (max-width: 768px) {
-    .model-cards-grid,
-    .model-cards-grid-3 {
-        grid-template-columns: 1fr;
-    }
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    grid-auto-rows: auto 1fr;
+    gap: 12px;
 }
 
 .model-card {
+    grid-row: span 2;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-rows: subgrid;
+    row-gap: 8px;
     border: 2px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 16px;
+    padding: 14px;
     background: #FAFAFA;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .model-card:hover {
@@ -528,21 +530,20 @@ body {
 
 .model-card-header {
     display: flex;
-    align-items: center;
+    align-items: safe center;
     gap: 10px;
-    margin-bottom: 8px;
 }
 
 .model-title {
     font-weight: 700;
-    font-size: 1.05rem;
+    font-size: 0.98rem;
     color: var(--slate-dark);
     display: block;
 }
 
 .model-tag {
     display: inline-block;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 12px;
@@ -552,6 +553,7 @@ body {
 .tag-ollama { background: #D1FAE5; color: #047857; }
 .tag-flash { background: #FEF3C7; color: #D97706; }
 .tag-pro { background: #F3E8FF; color: #7C3AED; }
+.tag-carbon { background: #E0F2FE; color: #0369A1; }
 
 .model-desc {
     font-size: 0.85rem;

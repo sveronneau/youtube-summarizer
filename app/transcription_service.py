@@ -5,7 +5,7 @@ import io
 import logging
 import os
 import threading
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -45,28 +45,85 @@ def _ensure_pyav_compat() -> None:
         logger.debug("PyAV shim skipped: %s", exc)
 
 
+class WhisperModelUnavailableError(RuntimeError):
+    """Raised when the Faster-Whisper speech model is not cached locally and cannot be downloaded."""
+
+
+def is_whisper_model_cached(model_size: Optional[str] = None) -> bool:
+    """Return True if the requested Faster-Whisper model weights are already present on disk."""
+    size = model_size or os.getenv("WHISPER_MODEL_SIZE", "base")
+    if os.path.isdir(size):
+        return True
+    try:
+        from faster_whisper.utils import download_model
+
+        path = download_model(size, local_files_only=True)
+        return bool(path and os.path.isdir(path))
+    except Exception:
+        return False
+
+
+def has_audio_stream(file_path: str) -> bool:
+    """Inspect container headers via PyAV to determine whether the media file contains an audio stream."""
+    if not file_path or not os.path.exists(file_path):
+        return False
+    _ensure_pyav_compat()
+    try:
+        import av
+
+        with av.open(file_path, mode="r") as container:
+            return bool(container.streams.audio)
+    except Exception:
+        # Assume audio may be present if container probe fails so Whisper can still attempt decode
+        return True
+
+
 def get_whisper_model() -> Any:
-    """Lazily initialize and cache the faster-whisper model in a thread-safe manner."""
+    """
+    Lazily initialize and cache the faster-whisper model in a thread-safe manner.
+    Tries `local_files_only=True` first so cached offline setups never stall on captive-portal Wi-Fi,
+    falling back to Hugging Face download only when weights are not yet cached.
+    """
     global _whisper_model
     _ensure_pyav_compat()
     if _whisper_model is None:
         with _model_lock:
             if _whisper_model is None:
+                model_size = os.getenv("WHISPER_MODEL_SIZE", "base")
+                compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+                cpu_threads = max(1, (os.cpu_count() or 4) // _MAX_CONCURRENT_JOBS)
                 try:
                     from faster_whisper import WhisperModel
+                except Exception as exc:
+                    logger.error("faster-whisper import failed: %s", exc)
+                    raise WhisperModelUnavailableError(
+                        f"Faster-Whisper library is unavailable: {exc}"
+                    ) from exc
 
-                    model_size = os.getenv("WHISPER_MODEL_SIZE", "base")
-                    compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
-                    cpu_threads = max(1, (os.cpu_count() or 4) // _MAX_CONCURRENT_JOBS)
+                try:
                     _whisper_model = WhisperModel(
                         model_size,
                         device="cpu",
                         compute_type=compute_type,
                         cpu_threads=cpu_threads,
+                        local_files_only=True,
                     )
-                except Exception as exc:
-                    logger.error("Failed to load WhisperModel: %s", exc)
-                    raise
+                except Exception:
+                    try:
+                        _whisper_model = WhisperModel(
+                            model_size,
+                            device="cpu",
+                            compute_type=compute_type,
+                            cpu_threads=cpu_threads,
+                            local_files_only=False,
+                        )
+                    except Exception as exc:
+                        logger.error("Failed to load or download WhisperModel '%s': %s", model_size, exc)
+                        raise WhisperModelUnavailableError(
+                            f"Offline Speech Model Not Cached: Faster-Whisper model '{model_size}' is not "
+                            "downloaded on this machine and there is no internet connection to fetch it. "
+                            "Connect once or run `python run.py --warmup` before going offline."
+                        ) from exc
     return _whisper_model
 
 
@@ -113,7 +170,19 @@ def transcribe_local_video(
     unfiltered audio if needed.
     """
     if not os.path.exists(file_path):
-        return {"success": False, "error": "Uploaded media file not found."}
+        return {
+            "success": False,
+            "reason": "file_missing",
+            "error": "Uploaded media file not found.",
+        }
+
+    if not has_audio_stream(file_path):
+        return {
+            "success": False,
+            "reason": "no_audio_stream",
+            "has_audio_stream": False,
+            "error": "Media file contains no audio stream.",
+        }
 
     with _transcription_semaphore:
         try:
@@ -165,6 +234,8 @@ def transcribe_local_video(
             if not full_text.strip():
                 return {
                     "success": False,
+                    "reason": "no_speech",
+                    "has_audio_stream": True,
                     "error": "No spoken speech or sung lyrics could be transcribed from the audio.",
                 }
 
@@ -175,6 +246,8 @@ def transcribe_local_video(
 
             return {
                 "success": True,
+                "reason": "ok",
+                "has_audio_stream": True,
                 "transcript_text": full_text,
                 "formatted_segments": formatted_segments,
                 "language_code": lang_code,
@@ -184,9 +257,22 @@ def transcribe_local_video(
                 "pass_used": pass_used,
             }
 
+        except WhisperModelUnavailableError as exc:
+            logger.error("Whisper model unavailable while transcribing %s: %s", file_path, exc)
+            return {
+                "success": False,
+                "reason": "whisper_unavailable",
+                "has_audio_stream": True,
+                "error": str(exc),
+            }
         except Exception as exc:
             logger.warning("Local audio transcription failed for %s: %s", file_path, exc)
-            return {"success": False, "error": f"Transcription error: {str(exc)}"}
+            return {
+                "success": False,
+                "reason": "transcription_error",
+                "has_audio_stream": True,
+                "error": f"Transcription error: {str(exc)}",
+            }
 
 
 def _encode_pil_to_jpeg_b64(img: Any) -> str:

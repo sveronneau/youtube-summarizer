@@ -72,10 +72,11 @@
             descGemma4: "Modèle local privé via Ollama (gemma4:12b / latest).",
             descFlash: "Exécution ultra-rapide et synthèse équilibrée.",
             descArgon: "Raisonnement approfondi et analyse multimodale.",
+            descCarbon: "Raisonnement de pointe maximal (1M contexte).",
             labelLocalVariant: "Variante locale Gemma 4 :",
             btnRefreshModels: "Actualiser",
             noteLocalServer: "Découvert depuis le serveur Ollama local.",
-            labelArgonThinking: "Niveau de réflexion Argon (API Interactions) :",
+            labelArgonThinking: "Niveau de réflexion Gemini 4 (Argon / Carbon) :",
             optThinkingHigh: "Élevé (Raisonnement approfondi • Recommandé)",
             optThinkingMedium: "Moyen (Équilibré)",
             optThinkingLow: "Faible (Rapide)",
@@ -128,10 +129,11 @@
             descGemma4: "Private local model via Ollama (gemma4:12b / latest).",
             descFlash: "Ultra-fast execution and balanced summary.",
             descArgon: "Deep reasoning and multimodal analysis.",
+            descCarbon: "Maximum frontier reasoning depth (1M context).",
             labelLocalVariant: "Select Local Gemma 4 Variant:",
             btnRefreshModels: "Refresh",
             noteLocalServer: "Loaded from local Ollama server.",
-            labelArgonThinking: "Argon Reasoning Depth (Interactions API):",
+            labelArgonThinking: "Gemini 4 Reasoning Depth (Argon / Carbon):",
             optThinkingHigh: "High (Deep Reasoning • Recommended)",
             optThinkingMedium: "Medium (Balanced)",
             optThinkingLow: "Low (Fast)",
@@ -184,10 +186,11 @@
             descGemma4: "Modèle local privé via Ollama / Private local model (gemma4:12b / latest).",
             descFlash: "Exécution ultra-rapide et synthèse équilibrée / Fast &amp; balanced summary.",
             descArgon: "Raisonnement approfondi &amp; analyse complexe / Deep multimodal reasoning.",
+            descCarbon: "Raisonnement de pointe maximal / Max frontier reasoning (1M).",
             labelLocalVariant: "Variante locale Gemma 4 / Local Variant:",
             btnRefreshModels: "Actualiser / Refresh",
             noteLocalServer: "Découvert depuis le serveur Ollama local / Loaded from local Ollama.",
-            labelArgonThinking: "Niveau de réflexion Argon / Thinking Level:",
+            labelArgonThinking: "Niveau de réflexion Gemini 4 (Argon / Carbon) / Thinking Level:",
             optThinkingHigh: "Élevé / High (Raisonnement approfondi • Recommandé / Recommended)",
             optThinkingMedium: "Moyen / Medium (Équilibré / Balanced)",
             optThinkingLow: "Faible / Low (Rapide / Fast)",
@@ -497,7 +500,7 @@
 
         const argonThinkingBox = document.getElementById('argon-thinking-container');
         if (argonThinkingBox) {
-            argonThinkingBox.classList.toggle('hidden', modelKey !== 'argon');
+            argonThinkingBox.classList.toggle('hidden', modelKey !== 'argon' && modelKey !== 'carbon');
         }
     }
 
@@ -641,7 +644,11 @@
     function classifyAndShowModelError(errMsg) {
         const dict = translations[state.currentLang];
         let errTitle = dict.errorTitleDefault;
-        if (errMsg.includes("Ollama") || errMsg.includes("Local")) {
+        if (errMsg.includes("Whisper") || errMsg.includes("Offline Speech Model")) {
+            errTitle = state.currentLang === 'en'
+                ? "Offline Speech Model Not Cached (Whisper)"
+                : "Modèle Vocal Hors-Ligne Non Mis en Cache (Whisper)";
+        } else if (errMsg.includes("Ollama") || errMsg.includes("Local")) {
             errTitle = state.currentLang === 'en' ? "Local Model Error (Ollama)" : "Erreur Modèle Local (Ollama)";
         } else if (errMsg.includes("Gemini") || errMsg.includes("Remote")) {
             errTitle = state.currentLang === 'en' ? "Remote Model Error (Gemini)" : "Erreur Modèle Distant (Gemini)";

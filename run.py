@@ -66,11 +66,21 @@ def get_lan_ip() -> str:
 
 
 if __name__ == "__main__":
+    from app.transcription_service import get_whisper_model, is_whisper_model_cached
+
+    whisper_size = os.getenv("WHISPER_MODEL_SIZE", "base")
+    if "--warmup" in sys.argv:
+        print(f"⏳ Pre-downloading / verifying Faster-Whisper model '{whisper_size}' for offline use...")
+        get_whisper_model()
+        print(f"✅ Faster-Whisper '{whisper_size}' is cached locally and ready for 100% offline transcription!")
+        sys.exit(0)
+
     lan_ip = get_lan_ip()
     port = int(os.getenv("PORT", "8000"))
     host = os.getenv("HOST", "0.0.0.0")
     reload_enabled = os.getenv("DEV_RELOAD", "true").lower() in ("1", "true", "yes")
     app_dir = str(Path(__file__).resolve().parent / "app")
+    whisper_ready = is_whisper_model_cached(whisper_size)
 
     print("=" * 64)
     print(" 🌲⛰️  Video Summarizer • DevFest Sherbrooke")
@@ -81,7 +91,11 @@ if __name__ == "__main__":
         print(f" > Network (LAN): http://{lan_ip}:{port}")
     print(f" > Listening on:  {host}:{port} (reload={'on' if reload_enabled else 'off'})")
     print(f" > Python:        {sys.version.split()[0]} ({sys.executable})")
-    print(" Models: 🦙 Ollama Gemma 4 (Local) | ⚡ Gemini Flash | 🧠 Gemini 4 Argon")
+    print(
+        f" > Whisper ASR:   "
+        f"{'✅ Cached offline (' + whisper_size + ')' if whisper_ready else '⚠️  Not cached yet — run `python run.py --warmup` while online'}"
+    )
+    print(" Models: 🦙 Gemma 4 (Local) | ⚡ Gemini Flash | 🧠 Gemini 4 Argon | 💎 Gemini 4 Carbon")
     print("=" * 64)
 
     uvicorn.run(

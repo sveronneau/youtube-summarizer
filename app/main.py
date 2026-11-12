@@ -98,7 +98,10 @@ class SummarizeRequest(BaseModel):
     model: str = Field(
         default="gemma4",
         max_length=128,
-        description="Choice of model: 'gemma4' (Ollama Local), 'flash' (Gemini 3.8 Flash), or 'argon' (Gemini 4 Argon)",
+        description=(
+            "Choice of model: 'gemma4' (Ollama Local), 'flash' (Gemini 3.8 Flash), "
+            "'argon' (Gemini 4 Argon), or 'carbon' (Gemini 4 Carbon)"
+        ),
     )
     custom_context: Optional[str] = Field(
         default="",
@@ -112,7 +115,7 @@ class SummarizeRequest(BaseModel):
     )
     thinking_level: Optional[str] = Field(
         default="high",
-        description="Reasoning depth for Gemini 4 Argon: 'low', 'medium', or 'high'",
+        description="Reasoning depth for Gemini 4 Argon / Carbon: 'low', 'medium', or 'high'",
     )
     lang: Optional[str] = Field(
         default="bi", description="Interface language preference: 'fr', 'en', or 'bi'"
@@ -403,6 +406,14 @@ async def summarize_uploaded_file(
         transcribe_res = await asyncio.to_thread(
             transcribe_local_video, safe_temp_path, song_mode
         )
+        if transcribe_res.get("reason") == "whisper_unavailable":
+            return {
+                "success": False,
+                "error": transcribe_res.get(
+                    "error",
+                    "Offline Speech Model Not Cached: Faster-Whisper weights are missing.",
+                ),
+            }
 
         transcript_text = transcribe_res.get("transcript_text") or ""
         seg_count = transcribe_res.get("segment_count", 0)
@@ -522,6 +533,17 @@ async def summarize_uploaded_file_stream(
             transcribe_res = await asyncio.to_thread(
                 transcribe_local_video, safe_temp_path, song_mode
             )
+            if transcribe_res.get("reason") == "whisper_unavailable":
+                yield _ndjson_line(
+                    {
+                        "type": "error",
+                        "error": transcribe_res.get(
+                            "error",
+                            "Offline Speech Model Not Cached: Faster-Whisper weights are missing.",
+                        ),
+                    }
+                )
+                return
 
             transcript_text = transcribe_res.get("transcript_text") or ""
             seg_count = transcribe_res.get("segment_count", 0)
