@@ -213,8 +213,7 @@
                                         <span class="model-tag tag-ollama" data-i18n="tagLocalServer">Local • Cantons</span>
                                     </div>
                                 </div>
-                                <p class="model-desc" data-i18n="descGemma4">Modèle local privé via Ollama (gemma4:12b /
-                                    latest).</p>
+                                <p class="model-desc" data-i18n="descGemma4">Modèle local privé via Ollama / Private local model (gemma4:12b / latest).</p>
                             </label>
 
                             <label for="model-flash" class="model-card" id="card-flash">
@@ -226,8 +225,7 @@
                                         <span class="model-tag tag-flash">Gemini 3.8</span>
                                     </div>
                                 </div>
-                                <p class="model-desc" data-i18n="descFlash">Exécution ultra-rapide et synthèse équilibrée.
-                                </p>
+                                <p class="model-desc" data-i18n="descFlash">Exécution ultra-rapide et synthèse équilibrée / Fast &amp; balanced summary.</p>
                             </label>
 
                             <label for="model-argon" class="model-card" id="card-argon">
@@ -239,7 +237,7 @@
                                         <span class="model-tag tag-pro">Gemini 4 Argon</span>
                                     </div>
                                 </div>
-                                <p class="model-desc" data-i18n="descArgon">Raisonnement approfondi et analyse complexe.</p>
+                                <p class="model-desc" data-i18n="descArgon">Raisonnement approfondi et analyse complexe / Deep multimodal reasoning.</p>
                             </label>
 
                             <label for="model-carbon" class="model-card" id="card-carbon">
@@ -248,10 +246,10 @@
                                     <span class="model-icon" aria-hidden="true">💎</span>
                                     <div>
                                         <span class="model-title">Gemini 4 Carbon</span>
-                                        <span class="model-tag tag-carbon">Gemini 4 Carbon</span>
+                                        <span class="model-tag tag-carbon" data-i18n="tagCarbon">Frontier • 1M</span>
                                     </div>
                                 </div>
-                                <p class="model-desc" data-i18n="descCarbon">Raisonnement de pointe maximal (1M contexte).</p>
+                                <p class="model-desc" data-i18n="descCarbon">Maximum frontier reasoning depth (1M context).</p>
                             </label>
                         </div>
 
@@ -284,19 +282,18 @@
                             <div class="variant-header">
                                 <label for="argon-thinking-select" class="variant-label">
                                     <i class="fa-solid fa-brain icon-chip" aria-hidden="true"></i>
-                                    <span data-i18n="labelArgonThinking">Niveau de réflexion Gemini 4 (Argon / Carbon) :</span>
+                                    <span id="argon-thinking-label-text" data-i18n="labelArgonThinking">Gemini 4 Reasoning Depth (Interactions API):</span>
                                 </label>
                             </div>
                             <div class="variant-select-wrapper">
                                 <select id="argon-thinking-select" name="thinking_level" class="form-control variant-select"
                                     aria-describedby="argon-thinking-note">
-                                    <option value="high" data-i18n="optThinkingHigh" selected>Élevé / High (Raisonnement approfondi • Recommandé / Recommended)</option>
-                                    <option value="medium" data-i18n="optThinkingMedium">Moyen / Medium (Équilibré / Balanced)</option>
-                                    <option value="low" data-i18n="optThinkingLow">Faible / Low (Rapide / Fast)</option>
+                                    <option value="high" data-i18n="optThinkingHigh" selected>High (Deep Reasoning • Recommended)</option>
+                                    <option value="medium" data-i18n="optThinkingMedium">Medium (Balanced)</option>
+                                    <option value="low" data-i18n="optThinkingLow">Low (Fast)</option>
                                 </select>
                             </div>
-                            <small class="variant-note" id="argon-thinking-note" data-i18n="noteArgonThinking">Contrôle la profondeur de raisonnement
-                                via l'API Interactions de Google.</small>
+                            <small class="variant-note" id="argon-thinking-note" data-i18n="noteArgonThinking">Controls reasoning depth via thinking_level in the Google Interactions API.</small>
                         </div>
                     </fieldset>
 

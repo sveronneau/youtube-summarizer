@@ -685,10 +685,15 @@ async def generate_summary_with_gemini(
             last_err = _scrub_secret(str(exc), api_key)
 
     if output_text:
+        model_label = (
+            f"Gemini ({target_model} • reasoning: {thinking_level})"
+            if is_gemini4
+            else f"Gemini ({target_model})"
+        )
         return {
             "success": True,
             "summary": output_text.strip(),
-            "model_used": f"Gemini ({target_model})",
+            "model_used": model_label,
         }
 
     return _format_gemini_error(target_model, last_err, api_key)
