@@ -26,7 +26,16 @@ The talk takes one task, summarizing a video, and does it five ways. **This repo
 4. The summary comes back and Flask renders it.
 5. Deploy with `gcloud run deploy --source .` — Cloud Build makes the container (no Dockerfile), Cloud Run serves it.
 
-Not in this repo. Follow the codelab: <https://codelabs.developers.google.com/devsite/codelabs/build-youtube-summarizer>. The codelab still offers `gemini-2.0-flash-001`, which is retired; change that one line in `templates/index.html` to `gemini-4-hydrogen`.
+Not in this repo. Follow the codelab: <https://codelabs.developers.google.com/devsite/codelabs/build-youtube-summarizer>.
+
+**Two changes are needed for the codelab to work as written:**
+
+| File | Codelab says | Change to |
+|---|---|---|
+| `templates/index.html` | model `gemini-2.0-flash-001` (retired) | `gemini-4-hydrogen` |
+| `app.py` | client location `us-central1` | `global` |
+
+The second one is the location the app uses to call the model, not the Cloud Run region you deploy to.
 
 ### Way 2 — Local app + Gemini API (this repo, Wi-Fi on)
 
