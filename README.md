@@ -4,6 +4,8 @@ Bilingual (**FR / EN**) AI-powered YouTube and local media (video/audio) summari
 
 The talk takes one task, summarizing a video, and does it five ways. **This repository is the app behind ways 2 and 3.** Ways 1, 4 and 5 live elsewhere and are described below so you can reproduce the whole set.
 
+📊 **Talk slides / Diapositives de la conférence :** [DECK.md](./DECK.md)
+
 ---
 
 ## 🖐️ One task, five ways / Une tâche, cinq façons
