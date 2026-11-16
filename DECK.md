@@ -7,6 +7,7 @@
 > - **Conférencier / Speaker :** Stacy Véronneau
 > - **Version :** Release 15 (`2026-11-13`)
 > - **Code (Façons 2 & 3 / Ways 2 & 3) :** [README.md](./README.md)
+> - **Architecture :** un diagramme par façon, sous les diapositives 10, 13, 15, 18 et 20 / one diagram per way, under slides 10, 13, 15, 18 and 20
 
 ---
 
@@ -144,6 +145,47 @@
 gcloud run deploy --source .
 ```
 
+### 🧭 Architecture *(hors diapositive / not on the slide)*
+
+```mermaid
+flowchart LR
+  subgraph B["Navigateur · Browser"]
+    F["Formulaire web · Web form<br/>lien YouTube + prompt"]
+  end
+  subgraph GC["Google Cloud"]
+    CR["Cloud Run<br/>Flask · app.py · /summarize<br/>SDK google-genai"]
+    AP["Agent Platform<br/>gemini-4-hydrogen<br/>location: global"]
+    CB["Cloud Build<br/>buildpacks · sans / no Dockerfile"]
+    CS["Cloud Shell Editor<br/>gcloud run deploy --source ."]
+  end
+  subgraph NET["Internet"]
+    YT["YouTube<br/>vidéo · video"]
+  end
+  F -->|"1"| CR
+  CR -->|"2"| AP
+  AP -->|"3"| YT
+  AP -->|"4"| CR
+  CR -->|"5"| F
+  CS -.->|"A"| CB
+  CB -.->|"B"| CR
+  class F,CR,AP,CB,CS,YT box;
+  classDef box fill:#FFFFFF,stroke:#1E1E1E,stroke-width:1.5px,color:#1E1E1E;
+  classDef off fill:#F8F9FA,stroke:#9AA0A6,stroke-dasharray:4 3,color:#9AA0A6;
+  style GC fill:#E8F0FE,stroke:#1E1E1E,color:#1E1E1E
+  style B fill:#F1F3F4,stroke:#1E1E1E,color:#1E1E1E
+  style NET fill:#F1F3F4,stroke:#1E1E1E,color:#1E1E1E
+```
+
+| # | Français | English |
+|---|---|---|
+| **1** | Le formulaire envoie le lien et le prompt (`POST /summarize`). | The form posts the link and the prompt (`POST /summarize`). |
+| **2** | Flask passe le lien à Gemini comme une vidéo. | Flask hands the link to Gemini as a video part. |
+| **3** | Gemini va chercher la vidéo : il voit les images, il entend le son. | Gemini fetches the video: it sees the frames and hears the audio. |
+| **4** | Le résumé revient à Flask. | The summary comes back to Flask. |
+| **5** | Flask affiche le résumé dans la page. | Flask renders the summary in the page. |
+| **A** | Déploiement : une seule commande dans Cloud Shell. | Deploy: one command from Cloud Shell. |
+| **B** | Cloud Build bâtit le conteneur, Cloud Run le sert. | Cloud Build builds the container, Cloud Run serves it. |
+
 ---
 
 ## Slide 11 — Façon 2 · Way 2
@@ -206,6 +248,54 @@ Before you code, show me your plan.
 echo GEMINI_API_KEY=… > .env && python run.py
 ```
 
+### 🧭 Architecture *(hors diapositive / not on the slide)*
+
+```mermaid
+flowchart LR
+  subgraph LAP["Portable · Laptop — Wi-Fi ON"]
+    UI["Navigateur · Browser<br/>HTML + JS · localhost:8000"]
+    MP4["clip.mp4<br/>fichier local · local file"]
+    subgraph API["FastAPI + uvicorn · python run.py"]
+      YS["youtube_service<br/>youtube-transcript-api · yt-dlp"]
+      TS["transcription_service<br/>faster-whisper · PyAV + Pillow"]
+      LS["llm_service<br/>prompt structuré · structured prompt<br/>google-genai"]
+      ENV[".env → GEMINI_API_KEY"]
+    end
+  end
+  subgraph NET["Internet"]
+    YT["YouTube<br/>titre · sous-titres · audio<br/>title · captions · audio"]
+  end
+  subgraph G["Google"]
+    GA["Gemini API<br/>Gemini 4 Hydrogen · Argon · Carbon"]
+  end
+  MP4 --> UI
+  UI -->|"1"| YS
+  YS -->|"2"| YT
+  YS -->|"3"| TS
+  TS -->|"4"| LS
+  ENV -.-> LS
+  LS -->|"5"| GA
+  GA -->|"6"| LS
+  LS -->|"7"| UI
+  class UI,MP4,YS,TS,LS,ENV,YT,GA box;
+  classDef box fill:#FFFFFF,stroke:#1E1E1E,stroke-width:1.5px,color:#1E1E1E;
+  classDef off fill:#F8F9FA,stroke:#9AA0A6,stroke-dasharray:4 3,color:#9AA0A6;
+  style LAP fill:#FCE8E6,stroke:#1E1E1E,color:#1E1E1E
+  style API fill:#FFFFFF,stroke:#1E1E1E,color:#1E1E1E
+  style NET fill:#F1F3F4,stroke:#1E1E1E,color:#1E1E1E
+  style G fill:#F1F3F4,stroke:#1E1E1E,color:#1E1E1E
+```
+
+| # | Français | English |
+|---|---|---|
+| **1** | Un lien YouTube ou un fichier part vers l'app (`/api/summarize/stream`). | A YouTube link or a file goes to the app (`/api/summarize/stream`). |
+| **2** | L'app récupère le titre et les sous-titres; sinon, l'audio. | The app fetches the title and captions; failing that, the audio. |
+| **3** | Sans sous-titres : Whisper transcrit. Sans paroles : 8 images clés. | No captions: Whisper transcribes. No speech: 8 keyframes. |
+| **4** | La transcription entre dans un prompt structuré. | The transcript goes into one structured prompt. |
+| **5** | Appel à Gemini 4, avec la clé du fichier `.env`. | Call to Gemini 4, with the key from the `.env` file. |
+| **6** | La réponse revient en streaming. | The answer streams back. |
+| **7** | Le navigateur affiche le résumé au fil des mots. | The browser renders the summary as the words arrive. |
+
 ---
 
 ## Slide 14 — Façon 3 · Way 3
@@ -231,6 +321,55 @@ echo GEMINI_API_KEY=… > .env && python run.py
 ollama pull gemma4
 pip install -r requirements.txt
 ```
+
+### 🧭 Architecture *(hors diapositive / not on the slide)*
+
+```mermaid
+flowchart LR
+  subgraph LAP["Portable · Laptop — Wi-Fi OFF"]
+    UI["Navigateur · Browser<br/>HTML + JS · localhost:8000"]
+    MP4["clip.mp4<br/>fichier local · local file"]
+    subgraph API["FastAPI + uvicorn"]
+      TMP["fichier temporaire · temp file"]
+      TS["transcription_service<br/>faster-whisper (cache) · CPU"]
+      LS["llm_service<br/>prompt · httpx"]
+    end
+    subgraph OL["Ollama"]
+      OS["Ollama<br/>127.0.0.1:11434 · /api/generate"]
+      GM["Gemma 4<br/>gemma4:latest · gemma4:12b"]
+    end
+  end
+  subgraph NET["Internet — hors ligne · offline"]
+    X["YouTube · Gemini API"]
+  end
+  MP4 --> UI
+  UI -->|"1"| TMP
+  TMP -->|"2"| TS
+  TS -->|"3"| LS
+  LS -->|"4"| OS
+  OS -->|"5"| GM
+  GM -->|"6"| LS
+  LS -->|"7"| UI
+  LS -. "✕" .-x X
+  class UI,MP4,TMP,TS,LS,OS,GM box;
+  class X off;
+  classDef box fill:#FFFFFF,stroke:#1E1E1E,stroke-width:1.5px,color:#1E1E1E;
+  classDef off fill:#F8F9FA,stroke:#9AA0A6,stroke-dasharray:4 3,color:#9AA0A6;
+  style LAP fill:#FEF7E0,stroke:#1E1E1E,color:#1E1E1E
+  style API fill:#FFFFFF,stroke:#1E1E1E,color:#1E1E1E
+  style OL fill:#FFFFFF,stroke:#1E1E1E,color:#1E1E1E
+  style NET fill:#F8F9FA,stroke:#9AA0A6,stroke-dasharray:4 3,color:#5F6368
+```
+
+| # | Français | English |
+|---|---|---|
+| **1** | Le fichier part vers l'app (`/api/summarize-upload/stream`). | The file goes to the app (`/api/summarize-upload/stream`). |
+| **2** | Il est sauvegardé le temps du traitement. | It is saved for the duration of the job. |
+| **3** | Whisper transcrit sur le portable (images clés si muet), puis le prompt. | Whisper transcribes on the laptop (keyframes if silent), then the prompt. |
+| **4** | Appel HTTP local à Ollama. | Local HTTP call to Ollama. |
+| **5** | Gemma 4 génère le résumé. | Gemma 4 generates the summary. |
+| **6** | Les mots reviennent en streaming. | The words stream back. |
+| **7** | Le navigateur affiche le résumé; le fichier temporaire est supprimé. | The browser renders the summary; the temp file is deleted. |
 
 ---
 
@@ -269,6 +408,47 @@ pip install -r requirements.txt
 
 **Flux / Flow :** `aistudio.google.com` → `Build` → `Publish`
 
+### 🧭 Architecture *(hors diapositive / not on the slide)*
+
+```mermaid
+flowchart LR
+  subgraph B["Navigateur · Browser"]
+    ME["Vous · You<br/>une phrase · one sentence"]
+    US["Utilisateurs · Users<br/>URL publique · public URL"]
+  end
+  subgraph G["Google"]
+    AS["AI Studio · Build<br/>l'agent écrit le code<br/>the agent writes the code"]
+    CR["Cloud Run<br/>app générée · generated app<br/>Starter Tier"]
+    GA["Gemini API<br/>gemini-4-hydrogen"]
+  end
+  subgraph NET["Internet"]
+    YT["YouTube<br/>vidéo · video"]
+  end
+  ME -->|"1"| AS
+  AS -->|"2"| CR
+  US -->|"3"| CR
+  CR -->|"4"| GA
+  GA -->|"5"| YT
+  GA -->|"6"| CR
+  CR -->|"7"| US
+  class ME,US,AS,CR,GA,YT box;
+  classDef box fill:#FFFFFF,stroke:#1E1E1E,stroke-width:1.5px,color:#1E1E1E;
+  classDef off fill:#F8F9FA,stroke:#9AA0A6,stroke-dasharray:4 3,color:#9AA0A6;
+  style G fill:#E6F4EA,stroke:#1E1E1E,color:#1E1E1E
+  style B fill:#F1F3F4,stroke:#1E1E1E,color:#1E1E1E
+  style NET fill:#F1F3F4,stroke:#1E1E1E,color:#1E1E1E
+```
+
+| # | Français | English |
+|---|---|---|
+| **1** | On décrit l'app en une phrase; on ajuste en conversant. | Describe the app in one sentence; refine by chatting. |
+| **2** | Publish déploie l'app générée sur Cloud Run. | Publish deploys the generated app to Cloud Run. |
+| **3** | Un utilisateur ouvre l'URL publique et colle un lien YouTube. | A user opens the public URL and pastes a YouTube link. |
+| **4** | L'app appelle l'API Gemini. | The app calls the Gemini API. |
+| **5** | Gemini va chercher la vidéo. | Gemini fetches the video. |
+| **6** | Le résumé revient à l'app. | The summary comes back to the app. |
+| **7** | L'app l'affiche à l'utilisateur. | The app shows it to the user. |
+
 ---
 
 ## Slide 19 — Façon 5 · Way 5
@@ -291,6 +471,45 @@ pip install -r requirements.txt
 | **LE HIC / THE CATCH** | Ça s'appuie surtout sur la transcription. Et c'est un outil pour vous, pas une app pour vos utilisateurs. | It leans mostly on the transcript. And it's a tool for you, not an app you ship. |
 
 **Flux / Flow :** `notebook.google` → `+ Source` → `YouTube`
+
+### 🧭 Architecture *(hors diapositive / not on the slide)*
+
+```mermaid
+flowchart LR
+  subgraph B["Navigateur · Browser"]
+    ME["Vous · You<br/>notebook.google"]
+  end
+  subgraph NB["Gemini Notebook · SaaS Google"]
+    SRC["Sources<br/>lien YouTube · YouTube link<br/>transcription · transcript"]
+    GM["Gemini<br/>géré · managed<br/>ancré sur les sources · grounded"]
+    SUM["Résumé · Summary<br/>avec citations · cited"]
+    AO["Audio Overview<br/>balado · podcast"]
+  end
+  subgraph NET["Internet"]
+    YT["YouTube<br/>vidéo · video"]
+  end
+  ME -->|"1"| SRC
+  SRC -->|"2"| YT
+  SRC -->|"3"| GM
+  GM -->|"4"| SUM
+  SUM -->|"5"| ME
+  GM -.->|"6"| AO
+  class ME,SRC,GM,SUM,AO,YT box;
+  classDef box fill:#FFFFFF,stroke:#1E1E1E,stroke-width:1.5px,color:#1E1E1E;
+  classDef off fill:#F8F9FA,stroke:#9AA0A6,stroke-dasharray:4 3,color:#9AA0A6;
+  style NB fill:#F1F3F4,stroke:#1E1E1E,color:#1E1E1E
+  style B fill:#FFFFFF,stroke:#1E1E1E,color:#1E1E1E
+  style NET fill:#FFFFFF,stroke:#1E1E1E,color:#1E1E1E
+```
+
+| # | Français | English |
+|---|---|---|
+| **1** | On ajoute le lien YouTube comme source. | Add the YouTube link as a source. |
+| **2** | Notebook importe la vidéo, surtout sa transcription. | Notebook ingests the video, mostly its transcript. |
+| **3** | On demande un résumé; Gemini répond à partir des sources. | Ask for a summary; Gemini answers from the sources. |
+| **4** | Le résumé cite ses sources. | The summary cites its sources. |
+| **5** | On le lit dans le navigateur. Rien à déployer. | Read it in the browser. Nothing to deploy. |
+| **6** | En option : Audio Overview en fait un balado à deux voix. | Optional: Audio Overview turns it into a two-host podcast. |
 
 ---
 
