@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="text-scale" content="scale">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <title>Sommaire Vidéo IA | DevFest Sherbrooke</title>
+    <title>AI Video Summarizer | GDG Ottawa — Learn, Build &amp; Jingle</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <!-- Google Fonts & FontAwesome (pinned with SRI, anonymous CORS, and no-referrer) -->
@@ -25,30 +26,37 @@
     <!-- Locally vendored Marked.js & DOMPurify for 100% offline Ollama Markdown rendering -->
     <script src="/static/vendor/marked.min.js?v=15.0.7"></script>
     <script src="/static/vendor/purify.min.js?v=3.2.4"></script>
-    <link rel="stylesheet" href="/static/style.css?v=2.4">
+    <link rel="stylesheet" href="/static/style.css?v=3.2">
 </head>
 
 <body>
 
-    <!-- Eastern Townships Mountains & Pine Horizon SVG Art -->
+    <!-- Festive Winter Snowy Hills, Evergreens & Twinkling Stars SVG Art -->
     <div class="townships-backdrop" aria-hidden="true">
         <svg class="mountain-silhouette" viewBox="0 0 1440 220" fill="none" xmlns="http://www.w3.org/2000/svg"
             preserveAspectRatio="none" aria-hidden="true">
-            <!-- Distant Mont Orford Ridge -->
-            <path d="M0,130 Q180,60 360,110 T720,70 T1080,100 T1440,80 L1440,220 L0,220 Z"
-                fill="rgba(15, 157, 88, 0.07)"></path>
-            <!-- Mont Bellevue Mid Ridge -->
-            <path d="M0,150 Q240,90 480,140 T960,105 T1440,130 L1440,220 L0,220 Z" fill="rgba(26, 115, 232, 0.08)">
-            </path>
-            <!-- Foreground Pine Line -->
-            <path d="M0,185 Q120,165 240,180 T480,165 T720,180 T960,165 T1200,180 T1440,170 L1440,220 L0,220 Z"
-                fill="rgba(11, 107, 58, 0.12)"></path>
+            <!-- Subtle Twinkling Winter Stars / Snowflakes -->
+            <circle cx="140" cy="42" r="2.2" fill="rgba(217, 119, 6, 0.28)"></circle>
+            <circle cx="320" cy="28" r="1.8" fill="rgba(26, 115, 232, 0.22)"></circle>
+            <circle cx="590" cy="36" r="2.4" fill="rgba(198, 40, 40, 0.22)"></circle>
+            <circle cx="840" cy="24" r="2" fill="rgba(217, 119, 6, 0.26)"></circle>
+            <circle cx="1110" cy="40" r="2.3" fill="rgba(26, 115, 232, 0.22)"></circle>
+            <circle cx="1310" cy="30" r="1.8" fill="rgba(198, 40, 40, 0.20)"></circle>
+            <!-- Frosty Winter Sky Drift -->
+            <path d="M0,128 Q220,70 460,115 T920,82 T1440,104 L1440,220 L0,220 Z"
+                fill="rgba(26, 115, 232, 0.06)"></path>
+            <!-- Warm Crimson & Snow Holiday Ridge -->
+            <path d="M0,154 Q260,104 540,145 T1040,114 T1440,136 L1440,220 L0,220 Z"
+                fill="rgba(198, 40, 40, 0.05)"></path>
+            <!-- Foreground Evergreen Pine Horizon -->
+            <path d="M0,185 Q120,164 240,180 T480,164 T720,180 T960,164 T1200,180 T1440,168 L1440,220 L0,220 Z"
+                fill="rgba(15, 123, 71, 0.10)"></path>
         </svg>
     </div>
 
     <div class="app-container">
 
-        <!-- DevFest Sherbrooke Header -->
+        <!-- GDG Ottawa Header -->
         <header class="devfest-header">
             <div class="lang-bar-container">
                 <div class="lang-pill-group" role="group" aria-labelledby="lang-group-label">
@@ -62,20 +70,23 @@
 
             <div class="header-badges-row">
                 <div class="devfest-badge">
-                    <span class="pine-icon" aria-hidden="true">🌲</span>
-                    <span class="badge-title">DevFest Sherbrooke</span>
+                    <span class="pine-icon" aria-hidden="true">🎄</span>
+                    <span class="badge-title">GDG Ottawa</span>
                     <span class="badge-sep" aria-hidden="true">•</span>
-                    <span class="badge-sub">GDG Cloud Sherbrooke</span>
-                    <span class="mountain-icon" aria-hidden="true">⛰️</span>
+                    <span class="badge-sub">Learn, Build &amp; Jingle</span>
+                    <span class="mountain-icon" aria-hidden="true">✨</span>
                 </div>
             </div>
 
             <h1 class="main-title" id="main-title">
                 <span data-i18n="titlePrefix">Sommaire Vidéo</span>
-                <span class="accent-text">DevFest</span>
+                <span class="accent-text">Learn, Build &amp; Jingle</span>
             </h1>
             <p class="subtitle" id="header-subtitle" data-i18n="subtitle">
-                L'intelligence artificielle au cœur des Cantons-de-l'Est • AI Video Summarizer
+                Codelab festif / Festive Google Codelab • 15 déc. / Dec 15, 2026 • 17h–19h / 5–7 PM EST
+            </p>
+            <p class="event-meta-pill" data-i18n="eventMeta">
+                🎄 Atelier virtuel des Fêtes / Virtual Holiday Workshop • 15 déc. / Dec 15, 2026 • 5:00–7:00 PM EST ☕
             </p>
         </header>
 
@@ -209,11 +220,23 @@
                                 <div class="model-card-header">
                                     <span class="model-icon" aria-hidden="true">🦙</span>
                                     <div>
-                                        <span class="model-title">Ollama Gemma 4</span>
-                                        <span class="model-tag tag-ollama" data-i18n="tagLocalServer">Local • Cantons</span>
+                                        <span class="model-title">Ollama</span>
+                                        <span class="model-tag tag-ollama" data-i18n="tagLocalServer">Modèle local / Local Model</span>
                                     </div>
                                 </div>
-                                <p class="model-desc" data-i18n="descGemma4">Modèle local privé via Ollama / Private local model (gemma4:12b / latest).</p>
+                                <p class="model-desc" data-i18n="descGemma4">Modèle local privé via Ollama / Private local model via Ollama.</p>
+                            </label>
+
+                            <label for="model-unsloth" class="model-card" id="card-unsloth">
+                                <input type="radio" id="model-unsloth" name="model" value="unsloth" class="visually-hidden">
+                                <div class="model-card-header">
+                                    <span class="model-icon" aria-hidden="true">🦥</span>
+                                    <div>
+                                        <span class="model-title">Unsloth</span>
+                                        <span class="model-tag tag-unsloth" data-i18n="tagUnsloth">Modèle local / Local Model</span>
+                                    </div>
+                                </div>
+                                <p class="model-desc" data-i18n="descUnsloth">Modèle local privé via Unsloth Studio / Private local model via Unsloth Studio.</p>
                             </label>
 
                             <label for="model-hydrogen" class="model-card" id="card-hydrogen">
@@ -226,6 +249,18 @@
                                     </div>
                                 </div>
                                 <p class="model-desc" data-i18n="descHydrogen">Vitesse élevée &amp; raisonnement efficace (1M) / Fast &amp; efficient reasoning (1M).</p>
+                            </label>
+
+                            <label for="model-neon" class="model-card" id="card-neon">
+                                <input type="radio" id="model-neon" name="model" value="neon" class="visually-hidden">
+                                <div class="model-card-header">
+                                    <span class="model-icon" aria-hidden="true">✨</span>
+                                    <div>
+                                        <span class="model-title">Gemini 4 Neon</span>
+                                        <span class="model-tag tag-neon" data-i18n="tagNeon">Équilibré / Balanced • 1M</span>
+                                    </div>
+                                </div>
+                                <p class="model-desc" data-i18n="descNeon">Intelligence quasi-pointe &amp; rapidité élevée (1M) / Near-flagship intelligence &amp; speed (1M).</p>
                             </label>
 
                             <label for="model-argon" class="model-card" id="card-argon">
@@ -258,7 +293,7 @@
                             <div class="variant-header">
                                 <label for="ollama-model-select" class="variant-label">
                                     <i class="fa-solid fa-microchip icon-chip" aria-hidden="true"></i>
-                                    <span data-i18n="labelLocalVariant">Variante locale Gemma 4 / Local Variant:</span>
+                                    <span data-i18n="labelLocalVariant">Modèle chargé Ollama / Loaded Model:</span>
                                 </label>
                                 <button type="button" class="btn-refresh-models" id="btn-refresh-models">
                                     <i class="fa-solid fa-arrows-rotate" id="refresh-icon" aria-hidden="true"></i>
@@ -267,16 +302,35 @@
                             </div>
                             <div class="variant-select-wrapper">
                                 <select id="ollama-model-select" name="ollama_variant" class="form-control variant-select"
-                                    aria-describedby="ollama-model-note">
-                                    <option value="gemma4:latest" data-i18n="optGemmaLatest" selected>gemma4:latest (8.0B - Rapide &amp; équilibré / Fast &amp; Balanced)</option>
-                                    <option value="gemma4:12b" data-i18n="optGemma12b">gemma4:12b (11.9B - Plus puissant / More Powerful)</option>
+                                    aria-describedby="ollama-model-note" disabled>
+                                    <option value="" data-i18n="optOllamaEmpty" disabled selected>Aucun modèle chargé dans Ollama / No loaded models in Ollama</option>
                                 </select>
                             </div>
-                            <small class="variant-note" id="ollama-model-note" data-i18n="noteLocalServer">Découvert depuis
-                                le serveur Ollama local.</small>
+                            <small class="variant-note" id="ollama-model-note" role="status" aria-live="polite" data-i18n="noteLocalServer">Vérification des modèles chargés dans Ollama (/api/ps)...</small>
                         </div>
 
-                        <!-- Gemini 4 Thinking Level Selector (Interactions API: Argon & Carbon) -->
+                        <!-- Dynamic Local Unsloth Studio Model Variant Selector -->
+                        <div id="unsloth-variant-container" class="ollama-variant-box unsloth-variant-box hidden">
+                            <div class="variant-header">
+                                <label for="unsloth-model-select" class="variant-label">
+                                    <i class="fa-solid fa-bolt icon-chip icon-chip-unsloth" aria-hidden="true"></i>
+                                    <span data-i18n="labelUnslothVariant">Modèle chargé Unsloth / Loaded Model:</span>
+                                </label>
+                                <button type="button" class="btn-refresh-models btn-refresh-unsloth" id="btn-refresh-unsloth-models">
+                                    <i class="fa-solid fa-arrows-rotate" id="refresh-unsloth-icon" aria-hidden="true"></i>
+                                    <span data-i18n="btnRefreshModels">Actualiser / Refresh</span>
+                                </button>
+                            </div>
+                            <div class="variant-select-wrapper">
+                                <select id="unsloth-model-select" name="unsloth_variant" class="form-control variant-select unsloth-select"
+                                    aria-describedby="unsloth-model-note" disabled>
+                                    <option value="" data-i18n="optUnslothEmpty" disabled selected>Aucun modèle chargé dans Unsloth / No loaded models in Unsloth</option>
+                                </select>
+                            </div>
+                            <small class="variant-note unsloth-note" id="unsloth-model-note" role="status" aria-live="polite" data-i18n="noteUnslothServer">Vérification des modèles chargés dans Unsloth (/v1/models)...</small>
+                        </div>
+
+                        <!-- Gemini 4 Thinking Level Selector (Interactions API: Hydrogen, Neon, Argon & Carbon) -->
                         <div id="argon-thinking-container" class="ollama-variant-box hidden">
                             <div class="variant-header">
                                 <label for="argon-thinking-select" class="variant-label">
@@ -287,9 +341,9 @@
                             <div class="variant-select-wrapper">
                                 <select id="argon-thinking-select" name="thinking_level" class="form-control variant-select"
                                     aria-describedby="argon-thinking-note">
-                                    <option value="xhigh" id="opt-thinking-xhigh" data-i18n="optThinkingXHigh" hidden>Très élevé / Extra High (xhigh • Hydrogen)</option>
-                                    <option value="high" data-i18n="optThinkingHigh" selected>Élevé / High (Raisonnement approfondi • Recommandé / Recommended)</option>
-                                    <option value="medium" data-i18n="optThinkingMedium">Moyen / Medium (Équilibré / Balanced)</option>
+                                    <option value="xhigh" id="opt-thinking-xhigh" data-i18n="optThinkingXHigh" hidden>Très élevé / Extra High (xhigh • Hydrogen / Neon)</option>
+                                    <option value="high" data-i18n="optThinkingHigh">Élevé / High (Raisonnement approfondi / Deep Reasoning)</option>
+                                    <option value="medium" data-i18n="optThinkingMedium" selected>Moyen / Medium (Équilibré • Recommandé / Balanced • Recommended)</option>
                                     <option value="low" data-i18n="optThinkingLow">Faible / Low (Rapide / Fast)</option>
                                 </select>
                             </div>
@@ -346,12 +400,11 @@
             <!-- Loading / Progress State with Cancel Control -->
             <div id="loading-container" class="loading-card hidden">
                 <div class="loading-spinner" aria-hidden="true">
-                    <span class="pine-spin">🌲</span>
+                    <span class="pine-spin">🎄</span>
                 </div>
-                <h2 id="loading-status" class="loading-heading" data-i18n="loadingTitle">Extraction de la transcription et génération du sommaire...</h2>
+                <h2 id="loading-status" class="loading-heading" role="status" aria-live="polite" data-i18n="loadingTitle">Extraction de la transcription et génération du sommaire...</h2>
                 <progress class="loading-progress" aria-labelledby="loading-status"></progress>
-                <p class="loading-sub" data-i18n="loadingSub">Traitement en cours aux couleurs de Sherbrooke et des
-                    Cantons-de-l'Est.</p>
+                <p class="loading-sub" data-i18n="loadingSub">Magie des Fêtes GDG Ottawa / Brewing with GDG Ottawa holiday cheer ☕🎄</p>
                 <button type="button" id="btn-cancel" class="btn-cancel">
                     <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                     <span data-i18n="btnCancel">Annuler / Cancel</span>
@@ -375,7 +428,7 @@
 
                 <div class="result-header">
                     <div class="result-meta">
-                        <span class="model-badge" id="res-model-used">Ollama Gemma 4</span>
+                        <span class="model-badge" id="res-model-used">Ollama</span>
                         <span class="transcript-badge" id="res-lang-info"><i class="fa-solid fa-closed-captioning" aria-hidden="true"></i>
                             Transcription</span>
                     </div>
@@ -419,22 +472,22 @@
             </div>
         </main>
 
-        <!-- DevFest Sherbrooke & Eastern Townships Footer -->
+        <!-- GDG Ottawa Holiday Footer -->
         <footer class="devfest-footer">
             <div class="footer-badges">
-                <span class="footer-badge">🎓 UdeS Campus</span>
-                <span class="footer-badge">⚡ GDG Cloud Sherbrooke</span>
-                <span class="footer-badge">🍁 Québec</span>
+                <span class="footer-badge">🎄 Learn, Build &amp; Jingle</span>
+                <span class="footer-badge">⚡ GDG Ottawa</span>
+                <span class="footer-badge">📅 Dec 15, 2026 • 5:00–7:00 PM EST</span>
+                <span class="footer-badge">☕ Virtual Workshop</span>
             </div>
             <p class="footer-copy">
-                <span data-i18n="footerText">Conçu pour le <strong>DevFest Sherbrooke</strong> 🌲⛰️ • Cantons-de-l'Est,
-                    Québec • Propulsé par <strong>Tokens &amp; Caféine</strong></span>
+                <span data-i18n="footerText">Conçu pour / Built for <strong>GDG Ottawa — Learn, Build &amp; Jingle</strong> 🎄✨ • 15 déc. / Dec 15, 2026 • <strong>Tokens &amp; Hot Cocoa</strong></span>
             </p>
         </footer>
 
     </div>
 
-    <script src="/static/app.js?v=2.4"></script>
+    <script src="/static/app.js?v=3.3"></script>
 </body>
 
 </html>

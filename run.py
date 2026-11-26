@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entry point for the DevFest Sherbrooke Video Summarizer FastAPI server."""
+"""Entry point for the GDG Ottawa — Learn, Build & Jingle Video Summarizer FastAPI server."""
 
 import os
 from pathlib import Path
@@ -83,8 +83,8 @@ if __name__ == "__main__":
     whisper_ready = is_whisper_model_cached(whisper_size)
 
     print("=" * 64)
-    print(" 🌲⛰️  Video Summarizer • DevFest Sherbrooke")
-    print("     GDG Cloud Sherbrooke • Eastern Townships Edition")
+    print(" 🎄✨  Video Summarizer • GDG Ottawa")
+    print("     Learn, Build & Jingle • Dec 15, 2026 (5:00–7:00 PM EST)")
     print("=" * 64)
     print(f" > Local URL:     http://localhost:{port}")
     if lan_ip and lan_ip != "127.0.0.1" and host == "0.0.0.0":
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         f" > Whisper ASR:   "
         f"{'✅ Cached offline (' + whisper_size + ')' if whisper_ready else '⚠️  Not cached yet — run `python run.py --warmup` while online'}"
     )
-    print(" Models: 🦙 Gemma 4 (Local) | ⚛️ Gemini 4 Hydrogen | 🧠 Gemini 4 Argon | 💎 Gemini 4 Carbon")
+    print(" Models: 🦙 Ollama (Local) | 🦥 Unsloth (Local) | ⚛️ Gemini 4 Hydrogen | ✨ Gemini 4 Neon | 🧠 Gemini 4 Argon | 💎 Gemini 4 Carbon")
     print("=" * 64)
 
     uvicorn.run(

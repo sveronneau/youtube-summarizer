@@ -1,13 +1,22 @@
 /**
- * Video Summarizer - DevFest Sherbrooke & Eastern Townships Frontend Controller
+ * Video Summarizer - GDG Ottawa (Learn, Build & Jingle) Frontend Controller
  * Full Bilingual Interface (FR / EN / BILINGUE) with Live NDJSON Streaming & Accessibility
  */
 
 (() => {
+    const supportsHasSelector = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('selector(:has(*))');
+
     const state = {
         selectedModel: 'gemma4',
-        selectedOllamaVariant: 'gemma4:latest',
+        selectedOllamaVariant: '',
         availableOllamaModels: [],
+        ollamaLoadedFetched: false,
+        ollamaOffline: false,
+        selectedUnslothVariant: '',
+        availableUnslothModels: [],
+        unslothLoadedFetched: false,
+        unslothOffline: false,
+        unslothAuthRequired: false,
         currentSourceMode: 'youtube', // 'youtube' or 'file'
         selectedFile: null,
         currentVideoObjectUrl: null,
@@ -50,11 +59,12 @@
 
     const translations = {
         fr: {
-            pageTitle: "Sommaire Vidéo IA | DevFest Sherbrooke",
+            pageTitle: "Sommaire Vidéo IA | GDG Ottawa — Learn, Build & Jingle",
             langLabel: "Langue :",
             tablistLabel: "Mode de source média",
             titlePrefix: "Sommaire Vidéo",
-            subtitle: "L'intelligence artificielle au cœur des Cantons-de-l'Est • Propulsé par DevFest Sherbrooke",
+            subtitle: "Codelab Google festif et célébration des Fêtes • Propulsé par GDG Ottawa",
+            eventMeta: "🎄 Atelier virtuel • 15 déc. 2026 • 17 h à 19 h HNE • Apportez votre boisson chaude ☕",
             tabYoutube: "Lien YouTube",
             tabUpload: "Fichier Vidéo ou Audio",
             labelYoutube: "Lien de la vidéo YouTube",
@@ -68,27 +78,41 @@
             tagSongPass: "Paroles & Audio",
             descSongMode: "Cochez cette case si le lien ou le fichier est une chanson afin d'extraire les paroles complètes et d'analyser les thèmes musicaux.",
             labelModelSelect: "Sélectionnez le modèle d'IA",
-            tagLocalServer: "Local • Cantons",
-            descGemma4: "Modèle local privé via Ollama (gemma4:12b / latest).",
+            tagLocalServer: "Modèle local",
+            descGemma4: "Modèle local privé via Ollama.",
+            tagUnsloth: "Modèle local",
+            descUnsloth: "Modèle local privé via Unsloth Studio.",
             tagHydrogen: "Rapide • 1M",
             descHydrogen: "Vitesse élevée et raisonnement efficace (1M contexte).",
+            tagNeon: "Équilibré • 1M",
+            descNeon: "Intelligence quasi-pointe et rapidité élevée (1M contexte).",
             tagArgon: "Raisonnement • 1M",
             descArgon: "Raisonnement approfondi et analyse multimodale.",
             tagCarbon: "Pointe • 1M",
             descCarbon: "Raisonnement de pointe maximal (1M contexte).",
-            labelLocalVariant: "Variante locale Gemma 4 :",
-            optGemmaLatest: "gemma4:latest (8.0B - Rapide et équilibré)",
-            optGemma12b: "gemma4:12b (11.9B - Plus puissant)",
+            labelLocalVariant: "Modèle chargé Ollama :",
+            optOllamaEmpty: "Aucun modèle actuellement chargé dans Ollama",
+            optOllamaOffline: "Serveur Ollama hors ligne (http://127.0.0.1:11434)",
             btnRefreshModels: "Actualiser",
-            noteLocalServer: "Découvert depuis le serveur Ollama local.",
+            noteLocalServer: "Vérification des modèles chargés dans Ollama (/api/ps)...",
+            noteOllamaEmpty: "Aucun modèle chargé en mémoire. Chargez un modèle dans Ollama (ex. `ollama run <modèle>`) puis cliquez sur Actualiser.",
+            labelUnslothVariant: "Modèle chargé Unsloth :",
+            optUnslothEmpty: "Aucun modèle actuellement chargé dans Unsloth",
+            optUnslothOffline: "Unsloth Studio hors ligne (http://127.0.0.1:8888)",
+            optUnslothAuth: "Jeton Unsloth requis (HTTP 401/403)",
+            noteUnslothServer: "Vérification des modèles chargés dans Unsloth (/v1/models)...",
+            noteUnslothEmpty: "Aucun modèle chargé en mémoire. Chargez un modèle dans Unsloth Studio puis cliquez sur Actualiser.",
+            noteUnslothAuth: "Authentification requise par Unsloth Studio. Définissez UNSLOTH_STUDIO_AUTH_TOKEN dans .env, puis cliquez sur Actualiser.",
             labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon (API Interactions) :",
-            noteCarbonThinking: "Gemini 4 Carbon engage un raisonnement maximal par défaut. Vous pouvez ajuster le niveau de réflexion (Faible, Moyen, Élevé) via thinking_level dans l'API Interactions.",
+            noteCarbonThinking: "Gemini 4 Carbon utilise le niveau Moyen par défaut. Vous pouvez ajuster le niveau de réflexion (Faible, Moyen, Élevé) via thinking_level dans l'API Interactions.",
             labelArgonThinking: "Niveau de réflexion Gemini 4 Argon (API Interactions) :",
+            labelNeonThinking: "Niveau de réflexion Gemini 4 Neon (API Interactions) :",
+            noteNeonThinking: "Gemini 4 Neon prend en charge quatre niveaux de réflexion (Faible, Moyen, Élevé, Très élevé xhigh) via thinking_level dans l'API Interactions.",
             labelHydrogenThinking: "Niveau de réflexion Gemini 4 Hydrogen (API Interactions) :",
             noteHydrogenThinking: "Gemini 4 Hydrogen prend en charge quatre niveaux de réflexion (Faible, Moyen, Élevé, Très élevé xhigh) via thinking_level dans l'API Interactions.",
-            optThinkingXHigh: "Très élevé (xhigh • Profondeur maximale Hydrogen)",
-            optThinkingHigh: "Élevé (Raisonnement approfondi • Recommandé)",
-            optThinkingMedium: "Moyen (Équilibré)",
+            optThinkingXHigh: "Très élevé (xhigh • Profondeur maximale Hydrogen / Neon)",
+            optThinkingHigh: "Élevé (Raisonnement approfondi)",
+            optThinkingMedium: "Moyen (Équilibré • Recommandé)",
             optThinkingLow: "Faible (Rapide)",
             noteArgonThinking: "Contrôle la profondeur de raisonnement via l'API Interactions de Google.",
             labelContext: "Contexte additionnel et attentes",
@@ -104,7 +128,7 @@
             stageTranscript: "Étape 1/2 : Extraction des sous-titres ou de l'audio...",
             stageFrames: "Étape 1/2 : Extraction d'images clés visuelles de la vidéo...",
             stageLlm: "Étape 2/2 : Rédaction du sommaire en direct...",
-            loadingSub: "Traitement en cours aux couleurs de Sherbrooke et des Cantons-de-l'Est.",
+            loadingSub: "Traitement en cours avec la magie des Fêtes de GDG Ottawa ☕🎄",
             errorTitleDefault: "Impossible de générer le sommaire",
             btnCopy: "Copier le résumé",
             btnCopied: "Copié !",
@@ -112,16 +136,17 @@
             btnViewTranscript: "Voir la transcription",
             btnHideTranscript: "Masquer la transcription",
             titleTranscript: "Transcription complète",
-            footerText: "Conçu pour le <strong>DevFest Sherbrooke</strong> 🌲⛰️ • Cantons-de-l'Est, Québec • Propulsé par <strong>Tokens &amp; Caféine</strong>",
+            footerText: "Conçu pour <strong>GDG Ottawa — Learn, Build &amp; Jingle</strong> 🎄✨ • Atelier virtuel des Fêtes (15 déc. 2026) • Propulsé par <strong>Tokens &amp; Chocolat Chaud</strong>",
             transcriptLines: "lignes",
             ytPlaceholder: "https://www.youtube.com/watch?v=..."
         },
         en: {
-            pageTitle: "AI Video Summarizer | DevFest Sherbrooke",
+            pageTitle: "AI Video Summarizer | GDG Ottawa — Learn, Build & Jingle",
             langLabel: "Language:",
             tablistLabel: "Media source mode",
             titlePrefix: "AI Video Summarizer",
-            subtitle: "AI from the Heart of the Eastern Townships • Powered by DevFest Sherbrooke",
+            subtitle: "Festive Google Codelab & Holiday Celebration • Powered by GDG Ottawa",
+            eventMeta: "🎄 Virtual Workshop • Dec 15, 2026 • 5:00–7:00 PM EST • Bring your cozy beverage ☕",
             tabYoutube: "YouTube Link",
             tabUpload: "Upload Video or Audio",
             labelYoutube: "YouTube Video Link",
@@ -135,27 +160,41 @@
             tagSongPass: "Lyrics & Audio",
             descSongMode: "Check this box when the link or file is a song to extract the full lyrics and analyze the musical themes.",
             labelModelSelect: "Select AI Model",
-            tagLocalServer: "Local • Townships",
-            descGemma4: "Private local model via Ollama (gemma4:12b / latest).",
+            tagLocalServer: "Local Model",
+            descGemma4: "Private local model via Ollama.",
+            tagUnsloth: "Local Model",
+            descUnsloth: "Private local model via Unsloth Studio.",
             tagHydrogen: "Fast • 1M",
             descHydrogen: "High-speed, cost-efficient reasoning (1M context).",
+            tagNeon: "Balanced • 1M",
+            descNeon: "Near-flagship intelligence with high-efficiency speed (1M context).",
             tagArgon: "Reasoning • 1M",
             descArgon: "Deep reasoning and multimodal analysis.",
             tagCarbon: "Frontier • 1M",
             descCarbon: "Maximum frontier reasoning depth (1M context).",
-            labelLocalVariant: "Select Local Gemma 4 Variant:",
-            optGemmaLatest: "gemma4:latest (8.0B - Fast & Balanced)",
-            optGemma12b: "gemma4:12b (11.9B - More Powerful)",
+            labelLocalVariant: "Loaded Ollama Model:",
+            optOllamaEmpty: "No models currently loaded in Ollama",
+            optOllamaOffline: "Ollama server offline (http://127.0.0.1:11434)",
             btnRefreshModels: "Refresh",
-            noteLocalServer: "Loaded from local Ollama server.",
+            noteLocalServer: "Checking loaded models in Ollama (/api/ps)...",
+            noteOllamaEmpty: "No models loaded in memory. Load a model in Ollama (e.g. `ollama run <model>`), then click Refresh.",
+            labelUnslothVariant: "Loaded Unsloth Model:",
+            optUnslothEmpty: "No models currently loaded in Unsloth",
+            optUnslothOffline: "Unsloth Studio offline (http://127.0.0.1:8888)",
+            optUnslothAuth: "Unsloth Bearer token required (HTTP 401/403)",
+            noteUnslothServer: "Checking loaded models in Unsloth (/v1/models)...",
+            noteUnslothEmpty: "No models loaded in memory. Load a model in Unsloth Studio, then click Refresh.",
+            noteUnslothAuth: "Unsloth Studio requires authentication. Set UNSLOTH_STUDIO_AUTH_TOKEN in .env, then click Refresh.",
             labelCarbonThinking: "Gemini 4 Carbon Reasoning Depth (Interactions API):",
-            noteCarbonThinking: "Gemini 4 Carbon engages deep frontier reasoning by default. You can adjust the reasoning depth (Low, Medium, High) via thinking_level in the Google Interactions API.",
+            noteCarbonThinking: "Gemini 4 Carbon uses Medium reasoning by default. You can adjust the reasoning depth (Low, Medium, High) via thinking_level in the Google Interactions API.",
             labelArgonThinking: "Gemini 4 Argon Reasoning Depth (Interactions API):",
+            labelNeonThinking: "Gemini 4 Neon Reasoning Depth (Interactions API):",
+            noteNeonThinking: "Gemini 4 Neon supports four reasoning levels (Low, Medium, High, Extra High xhigh) via thinking_level in the Google Interactions API.",
             labelHydrogenThinking: "Gemini 4 Hydrogen Reasoning Depth (Interactions API):",
             noteHydrogenThinking: "Gemini 4 Hydrogen supports four reasoning levels (Low, Medium, High, Extra High xhigh) via thinking_level in the Google Interactions API.",
-            optThinkingXHigh: "Extra High (xhigh • Maximum Hydrogen Depth)",
-            optThinkingHigh: "High (Deep Reasoning • Recommended)",
-            optThinkingMedium: "Medium (Balanced)",
+            optThinkingXHigh: "Extra High (xhigh • Maximum Hydrogen / Neon Depth)",
+            optThinkingHigh: "High (Deep Reasoning)",
+            optThinkingMedium: "Medium (Balanced • Recommended)",
             optThinkingLow: "Low (Fast)",
             noteArgonThinking: "Controls reasoning depth (Low, Medium, High) for Gemini 4 Argon via thinking_level in the Google Interactions API.",
             labelContext: "Extra Context & Expectations",
@@ -171,7 +210,7 @@
             stageTranscript: "Step 1/2: Extracting captions or audio track...",
             stageFrames: "Step 1/2: Extracting visual keyframes from video...",
             stageLlm: "Step 2/2: Streaming summary live...",
-            loadingSub: "Processing with Eastern Townships tech energy and Sherbrooke vibes.",
+            loadingSub: "Brewing your summary with GDG Ottawa holiday cheer & cozy vibes ☕🎄",
             errorTitleDefault: "Unable to generate summary",
             btnCopy: "Copy Summary",
             btnCopied: "Copied!",
@@ -179,16 +218,17 @@
             btnViewTranscript: "View Transcript",
             btnHideTranscript: "Hide Transcript",
             titleTranscript: "Full Transcript",
-            footerText: "Built for <strong>DevFest Sherbrooke</strong> 🌲⛰️ • Eastern Townships, Quebec • Powered by <strong>Tokens &amp; Caffeine</strong>",
+            footerText: "Built for <strong>GDG Ottawa — Learn, Build &amp; Jingle</strong> 🎄✨ • Virtual Holiday Workshop (Dec 15, 2026) • Powered by <strong>Tokens &amp; Hot Cocoa</strong>",
             transcriptLines: "lines",
             ytPlaceholder: "https://www.youtube.com/watch?v=..."
         },
         bi: {
-            pageTitle: "Sommaire Vidéo IA • AI Video Summarizer | DevFest Sherbrooke",
+            pageTitle: "Sommaire Vidéo IA • AI Video Summarizer | GDG Ottawa — Learn, Build & Jingle",
             langLabel: "Langue / Language:",
             tablistLabel: "Source média / Media source",
             titlePrefix: "Sommaire Vidéo",
-            subtitle: "L'intelligence artificielle au cœur des Cantons-de-l'Est • AI Video Summarizer",
+            subtitle: "Codelab Google festif / Festive Google Codelab • GDG Ottawa",
+            eventMeta: "🎄 Atelier virtuel / Virtual Workshop • 15 déc. / Dec 15, 2026 • 17h–19h / 5:00–7:00 PM EST ☕",
             tabYoutube: "Lien YouTube / YouTube Link",
             tabUpload: "Fichier Vidéo ou Audio / Upload Media",
             labelYoutube: "Lien de la vidéo YouTube / YouTube Video Link",
@@ -202,27 +242,41 @@
             tagSongPass: "Paroles / Lyrics",
             descSongMode: "Cochez si le lien ou le fichier est une chanson pour extraire les paroles / Check if the input is a song to extract full lyrics.",
             labelModelSelect: "Sélectionnez le modèle d'IA / Select AI Model",
-            tagLocalServer: "Local • Cantons / Townships",
-            descGemma4: "Modèle local privé via Ollama / Private local model (gemma4:12b / latest).",
+            tagLocalServer: "Modèle local / Local Model",
+            descGemma4: "Modèle local privé via Ollama / Private local model via Ollama.",
+            tagUnsloth: "Modèle local / Local Model",
+            descUnsloth: "Modèle local privé via Unsloth Studio / Private local model via Unsloth Studio.",
             tagHydrogen: "Rapide / Fast • 1M",
             descHydrogen: "Vitesse élevée &amp; raisonnement efficace (1M) / Fast &amp; efficient reasoning (1M).",
+            tagNeon: "Équilibré / Balanced • 1M",
+            descNeon: "Intelligence quasi-pointe &amp; rapidité élevée (1M) / Near-flagship intelligence &amp; speed (1M).",
             tagArgon: "Raisonnement / Reasoning • 1M",
             descArgon: "Raisonnement approfondi &amp; analyse complexe / Deep multimodal reasoning.",
             tagCarbon: "Pointe / Frontier • 1M",
             descCarbon: "Raisonnement de pointe maximal / Maximum frontier reasoning (1M).",
-            labelLocalVariant: "Variante locale Gemma 4 / Local Variant:",
-            optGemmaLatest: "gemma4:latest (8.0B - Rapide & équilibré / Fast & Balanced)",
-            optGemma12b: "gemma4:12b (11.9B - Plus puissant / More Powerful)",
+            labelLocalVariant: "Modèle chargé Ollama / Loaded Model:",
+            optOllamaEmpty: "Aucun modèle chargé dans Ollama / No loaded models in Ollama",
+            optOllamaOffline: "Ollama hors ligne / Ollama server offline (http://127.0.0.1:11434)",
             btnRefreshModels: "Actualiser / Refresh",
-            noteLocalServer: "Découvert depuis le serveur Ollama local / Loaded from local Ollama.",
+            noteLocalServer: "Vérification des modèles chargés dans Ollama (/api/ps)...",
+            noteOllamaEmpty: "Aucun modèle chargé en mémoire. Chargez un modèle dans Ollama puis Actualiser / Load a model in Ollama, then Refresh.",
+            labelUnslothVariant: "Modèle chargé Unsloth / Loaded Model:",
+            optUnslothEmpty: "Aucun modèle chargé dans Unsloth / No loaded models in Unsloth",
+            optUnslothOffline: "Unsloth hors ligne / Unsloth Studio offline (http://127.0.0.1:8888)",
+            optUnslothAuth: "Jeton Unsloth requis / Unsloth Bearer token required (HTTP 401/403)",
+            noteUnslothServer: "Vérification des modèles chargés dans Unsloth (/v1/models)...",
+            noteUnslothEmpty: "Aucun modèle chargé dans Unsloth / No loaded models in Unsloth. Load a model, then Refresh.",
+            noteUnslothAuth: "Jeton Bearer requis par Unsloth / Set UNSLOTH_STUDIO_AUTH_TOKEN in .env, then Refresh.",
             labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon / Reasoning Depth (Interactions API):",
-            noteCarbonThinking: "Gemini 4 Carbon applique un raisonnement maximal par défaut / Engages deep frontier reasoning by default (Low, Medium, High via thinking_level).",
+            noteCarbonThinking: "Gemini 4 Carbon utilise le niveau Moyen par défaut / Uses Medium reasoning by default (Low, Medium, High via thinking_level).",
             labelArgonThinking: "Niveau de réflexion Gemini 4 Argon / Reasoning Depth (Interactions API):",
+            labelNeonThinking: "Niveau de réflexion Gemini 4 Neon / Reasoning Depth (Interactions API):",
+            noteNeonThinking: "Gemini 4 Neon supporte 4 niveaux / Supports 4 levels (Faible, Moyen, Élevé, Très élevé / Low, Medium, High, xhigh via thinking_level).",
             labelHydrogenThinking: "Niveau de réflexion Gemini 4 Hydrogen / Reasoning Depth (Interactions API):",
             noteHydrogenThinking: "Gemini 4 Hydrogen supporte 4 niveaux / Supports 4 levels (Faible, Moyen, Élevé, Très élevé / Low, Medium, High, xhigh via thinking_level).",
-            optThinkingXHigh: "Très élevé / Extra High (xhigh • Hydrogen)",
-            optThinkingHigh: "Élevé / High (Raisonnement approfondi • Recommandé / Recommended)",
-            optThinkingMedium: "Moyen / Medium (Équilibré / Balanced)",
+            optThinkingXHigh: "Très élevé / Extra High (xhigh • Hydrogen / Neon)",
+            optThinkingHigh: "Élevé / High (Raisonnement approfondi / Deep Reasoning)",
+            optThinkingMedium: "Moyen / Medium (Équilibré • Recommandé / Balanced • Recommended)",
             optThinkingLow: "Faible / Low (Rapide / Fast)",
             noteArgonThinking: "Contrôle la profondeur de raisonnement pour Gemini 4 Argon / Controls reasoning depth (Low, Medium, High via thinking_level).",
             labelContext: "Contexte additionnel et attentes / Extra Context &amp; Expectations",
@@ -238,7 +292,7 @@
             stageTranscript: "Étape 1/2 : Extraction transcription / Extracting transcript...",
             stageFrames: "Étape 1/2 : Lecture visuelle de la vidéo / Extracting video keyframes...",
             stageLlm: "Étape 2/2 : Génération en direct / Streaming summary...",
-            loadingSub: "Traitement en cours aux couleurs de Sherbrooke et des Cantons-de-l'Est.",
+            loadingSub: "Magie des Fêtes GDG Ottawa / Brewing with GDG Ottawa holiday cheer ☕🎄",
             errorTitleDefault: "Impossible de générer le sommaire / Unable to generate summary",
             btnCopy: "Copier / Copy",
             btnCopied: "Copié ! / Copied!",
@@ -246,7 +300,7 @@
             btnViewTranscript: "Voir la transcription / View Transcript",
             btnHideTranscript: "Masquer la transcription / Hide Transcript",
             titleTranscript: "Transcription complète / Full Transcript",
-            footerText: "Conçu pour le <strong>DevFest Sherbrooke</strong> 🌲⛰️ • Cantons-de-l'Est, Québec • Propulsé par <strong>Tokens &amp; Caféine</strong>",
+            footerText: "Conçu pour / Built for <strong>GDG Ottawa — Learn, Build &amp; Jingle</strong> 🎄✨ • 15 déc. / Dec 15, 2026 • <strong>Tokens &amp; Hot Cocoa</strong>",
             transcriptLines: "lignes / lines",
             ytPlaceholder: "https://www.youtube.com/watch?v=..."
         }
@@ -254,41 +308,55 @@
 
     function formatOllamaOptionLabel(m) {
         let labelText = m.name;
-        if (m.parameter_size) {
-            const isPowerful = m.name.includes('12b') || m.name.includes('26b') || m.name.includes('27b');
-            const isFast = m.name.includes('latest') || m.name.includes('8b');
-            if (isPowerful) {
-                const desc = state.currentLang === 'en' ? 'More Powerful' : (state.currentLang === 'fr' ? 'Plus puissant' : 'Plus puissant / More Powerful');
-                labelText += ` (${m.parameter_size} - ${desc})`;
-            } else if (isFast) {
-                const desc = state.currentLang === 'en' ? 'Fast & Balanced' : (state.currentLang === 'fr' ? 'Rapide & équilibré' : 'Rapide & équilibré / Fast & Balanced');
-                labelText += ` (${m.parameter_size} - ${desc})`;
-            } else {
-                labelText += ` (${m.parameter_size})`;
-            }
+        const meta = [];
+        if (m.parameter_size) meta.push(m.parameter_size);
+        if (m.size_vram_gb) {
+            const unitLabel = state.currentLang === 'fr' ? 'Go' : 'GB';
+            meta.push(`${m.size_vram_gb} ${unitLabel} VRAM`);
+        } else if (m.size_gb) {
+            const unitLabel = state.currentLang === 'fr' ? 'Go' : 'GB';
+            meta.push(`${m.size_gb} ${unitLabel}`);
+        }
+        if (meta.length > 0) {
+            labelText += ` (${meta.join(' • ')})`;
         }
         return labelText;
     }
 
     function renderOllamaSelectOptions() {
         const selectEl = document.getElementById('ollama-model-select');
-        if (!selectEl || state.availableOllamaModels.length === 0) return;
+        if (!selectEl) return;
+
+        const dict = translations[state.currentLang] || translations.bi;
+        if (state.availableOllamaModels.length === 0) {
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.disabled = true;
+            emptyOpt.selected = true;
+            emptyOpt.textContent = state.ollamaOffline ? dict.optOllamaOffline : dict.optOllamaEmpty;
+            selectEl.replaceChildren(emptyOpt);
+            selectEl.disabled = true;
+            state.selectedOllamaVariant = '';
+            return;
+        }
 
         const currentVal = state.selectedOllamaVariant || selectEl.value;
-        selectEl.innerHTML = '';
+        selectEl.disabled = false;
         let preferredFound = false;
 
-        state.availableOllamaModels.forEach(m => {
+        const options = state.availableOllamaModels.map(m => {
             const opt = document.createElement('option');
             opt.value = m.name;
             opt.textContent = formatOllamaOptionLabel(m);
-            if (m.name === currentVal || (!currentVal && m.name === 'gemma4:latest')) {
+            if (m.name === currentVal) {
                 opt.selected = true;
                 state.selectedOllamaVariant = m.name;
                 preferredFound = true;
             }
-            selectEl.appendChild(opt);
+            return opt;
         });
+
+        selectEl.replaceChildren(...options);
 
         if (!preferredFound && state.availableOllamaModels.length > 0) {
             selectEl.selectedIndex = 0;
@@ -300,21 +368,102 @@
         const noteEl = document.getElementById('ollama-model-note');
         if (!noteEl) return;
 
+        const dict = translations[state.currentLang] || translations.bi;
         const found = state.availableOllamaModels.find(m => m.name === modelName);
         const isEn = state.currentLang === 'en';
         const isFr = state.currentLang === 'fr';
-        const safeModelName = escapeHtml(modelName);
 
         if (found) {
-            const prefix = isEn ? "Active local model: " : (isFr ? "Modèle local actif : " : "Modèle local actif / Active model: ");
+            const prefix = isEn ? "Loaded in Ollama: " : (isFr ? "Chargé dans Ollama : " : "Chargé / Loaded in Ollama: ");
             const sizeLabel = isEn ? "Size:" : (isFr ? "Taille :" : "Taille / Size:");
             const unitLabel = isFr ? "Go" : "GB";
             let text = `${prefix}<strong>${escapeHtml(found.name)}</strong>`;
             if (found.parameter_size) text += ` • ${sizeLabel} ${escapeHtml(found.parameter_size)}`;
-            if (found.size_gb) text += ` (${escapeHtml(found.size_gb)} ${unitLabel})`;
+            if (found.size_vram_gb) text += ` (${escapeHtml(found.size_vram_gb)} ${unitLabel} VRAM)`;
+            else if (found.size_gb) text += ` (${escapeHtml(found.size_gb)} ${unitLabel})`;
             noteEl.innerHTML = text;
+        } else if (!state.ollamaLoadedFetched) {
+            noteEl.textContent = dict.noteLocalServer;
+        } else if (state.ollamaOffline) {
+            noteEl.textContent = dict.optOllamaOffline;
         } else {
-            noteEl.innerHTML = `<strong>${safeModelName}</strong> (Ollama Local)`;
+            noteEl.textContent = dict.noteOllamaEmpty;
+        }
+    }
+
+    function formatUnslothOptionLabel(m) {
+        let labelText = m.name;
+        if (m.owned_by && m.owned_by !== 'unsloth') {
+            labelText += ` (${m.owned_by})`;
+        }
+        return labelText;
+    }
+
+    function renderUnslothSelectOptions() {
+        const selectEl = document.getElementById('unsloth-model-select');
+        if (!selectEl) return;
+
+        const dict = translations[state.currentLang] || translations.bi;
+        if (state.availableUnslothModels.length === 0) {
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.disabled = true;
+            emptyOpt.selected = true;
+            emptyOpt.textContent = state.unslothAuthRequired
+                ? dict.optUnslothAuth
+                : (state.unslothOffline ? dict.optUnslothOffline : dict.optUnslothEmpty);
+            selectEl.replaceChildren(emptyOpt);
+            selectEl.disabled = true;
+            state.selectedUnslothVariant = '';
+            return;
+        }
+
+        const currentVal = state.selectedUnslothVariant || selectEl.value;
+        selectEl.disabled = false;
+        let preferredFound = false;
+
+        const options = state.availableUnslothModels.map(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = formatUnslothOptionLabel(m);
+            if (m.name === currentVal) {
+                opt.selected = true;
+                state.selectedUnslothVariant = m.name;
+                preferredFound = true;
+            }
+            return opt;
+        });
+
+        selectEl.replaceChildren(...options);
+
+        if (!preferredFound && state.availableUnslothModels.length > 0) {
+            selectEl.selectedIndex = 0;
+            state.selectedUnslothVariant = state.availableUnslothModels[0].name;
+        }
+    }
+
+    function updateUnslothModelNote(modelName) {
+        const noteEl = document.getElementById('unsloth-model-note');
+        if (!noteEl) return;
+
+        const dict = translations[state.currentLang] || translations.bi;
+        const found = state.availableUnslothModels.find(m => m.name === modelName);
+        const isEn = state.currentLang === 'en';
+        const isFr = state.currentLang === 'fr';
+
+        if (found) {
+            const prefix = isEn ? "Loaded in Unsloth: " : (isFr ? "Chargé dans Unsloth : " : "Chargé / Loaded in Unsloth: ");
+            let text = `${prefix}<strong>${escapeHtml(found.name)}</strong>`;
+            if (found.context_length) text += ` • ${escapeHtml(found.context_length)} ctx`;
+            noteEl.innerHTML = text;
+        } else if (!state.unslothLoadedFetched) {
+            noteEl.textContent = dict.noteUnslothServer;
+        } else if (state.unslothAuthRequired) {
+            noteEl.textContent = dict.noteUnslothAuth;
+        } else if (state.unslothOffline) {
+            noteEl.textContent = dict.optUnslothOffline;
+        } else {
+            noteEl.textContent = dict.noteUnslothEmpty;
         }
     }
 
@@ -391,6 +540,8 @@
 
         renderOllamaSelectOptions();
         updateOllamaModelNote(state.selectedOllamaVariant);
+        renderUnslothSelectOptions();
+        updateUnslothModelNote(state.selectedUnslothVariant);
         updateThinkingContainer();
         syncTranscriptToggleText();
     }
@@ -403,17 +554,58 @@
 
         try {
             const res = await fetch('/api/ollama/models');
+            state.ollamaLoadedFetched = true;
             if (res.ok) {
                 const data = await res.json();
-                if (data.success && data.models && data.models.length > 0) {
-                    state.availableOllamaModels = data.models;
-                    renderOllamaSelectOptions();
-                    updateOllamaModelNote(state.selectedOllamaVariant);
-                }
+                state.ollamaOffline = !data.success;
+                state.availableOllamaModels = data.success && Array.isArray(data.models) ? data.models : [];
+            } else {
+                state.ollamaOffline = true;
+                state.availableOllamaModels = [];
             }
         } catch (err) {
+            state.ollamaLoadedFetched = true;
+            state.ollamaOffline = true;
+            state.availableOllamaModels = [];
             console.warn("Could not load local Ollama models:", err);
         } finally {
+            renderOllamaSelectOptions();
+            updateOllamaModelNote(state.selectedOllamaVariant);
+            if (refreshIcon) {
+                refreshIcon.classList.remove('fa-spin');
+            }
+        }
+    }
+
+    async function loadUnslothModels(isManualRefresh = false) {
+        const refreshIcon = document.getElementById('refresh-unsloth-icon');
+        if (refreshIcon && isManualRefresh) {
+            refreshIcon.classList.add('fa-spin');
+        }
+
+        try {
+            const fetchOpts = isManualRefresh ? {} : { priority: 'low' };
+            const res = await fetch('/api/unsloth/models', fetchOpts);
+            state.unslothLoadedFetched = true;
+            if (res.ok) {
+                const data = await res.json();
+                state.unslothAuthRequired = Boolean(data.auth_required);
+                state.unslothOffline = !data.success && !data.auth_required;
+                state.availableUnslothModels = data.success && Array.isArray(data.models) ? data.models : [];
+            } else {
+                state.unslothAuthRequired = false;
+                state.unslothOffline = true;
+                state.availableUnslothModels = [];
+            }
+        } catch (err) {
+            state.unslothLoadedFetched = true;
+            state.unslothAuthRequired = false;
+            state.unslothOffline = true;
+            state.availableUnslothModels = [];
+            console.warn("Could not load local Unsloth models:", err);
+        } finally {
+            renderUnslothSelectOptions();
+            updateUnslothModelNote(state.selectedUnslothVariant);
             if (refreshIcon) {
                 refreshIcon.classList.remove('fa-spin');
             }
@@ -492,7 +684,7 @@
             const songCard = document.getElementById('song-mode-card');
             if (songCheckbox && !songCheckbox.checked) {
                 songCheckbox.checked = true;
-                if (songCard) songCard.classList.add('active');
+                if (!supportsHasSelector && songCard) songCard.classList.add('active');
             }
         }
 
@@ -523,21 +715,22 @@
         if (!container) return;
         const isGeminiReasoning = (
             state.selectedModel === 'hydrogen' ||
+            state.selectedModel === 'neon' ||
             state.selectedModel === 'argon' ||
             state.selectedModel === 'carbon'
         );
         container.classList.toggle('hidden', !isGeminiReasoning);
         if (!isGeminiReasoning) return;
 
-        const isHydrogen = state.selectedModel === 'hydrogen';
+        const supportsXHigh = state.selectedModel === 'hydrogen' || state.selectedModel === 'neon';
         const xhighOption = document.getElementById('opt-thinking-xhigh');
         const thinkingSelect = document.getElementById('argon-thinking-select');
         if (xhighOption) {
-            xhighOption.hidden = !isHydrogen;
-            xhighOption.disabled = !isHydrogen;
+            xhighOption.hidden = !supportsXHigh;
+            xhighOption.disabled = !supportsXHigh;
         }
-        if (!isHydrogen && thinkingSelect && thinkingSelect.value === 'xhigh') {
-            thinkingSelect.value = 'high';
+        if (!supportsXHigh && thinkingSelect && thinkingSelect.value === 'xhigh') {
+            thinkingSelect.value = 'medium';
         }
 
         const dict = translations[state.currentLang] || translations.bi;
@@ -546,6 +739,7 @@
 
         const modelConfig = {
             carbon: ['labelCarbonThinking', 'noteCarbonThinking'],
+            neon: ['labelNeonThinking', 'noteNeonThinking'],
             hydrogen: ['labelHydrogenThinking', 'noteHydrogenThinking'],
             argon: ['labelArgonThinking', 'noteArgonThinking'],
         };
@@ -563,10 +757,14 @@
     function selectModel(modelKey) {
         state.selectedModel = modelKey;
 
-        document.querySelectorAll('.model-card').forEach(card => card.classList.remove('active'));
+        if (!supportsHasSelector) {
+            document.querySelectorAll('.model-card').forEach(card => card.classList.remove('active'));
+        }
         const activeCard = document.getElementById(`card-${modelKey}`);
         if (activeCard) {
-            activeCard.classList.add('active');
+            if (!supportsHasSelector) {
+                activeCard.classList.add('active');
+            }
             const radio = activeCard.querySelector('input[type="radio"]');
             if (radio && !radio.checked) radio.checked = true;
         }
@@ -574,6 +772,14 @@
         const ollamaVariantBox = document.getElementById('ollama-variant-container');
         if (ollamaVariantBox) {
             ollamaVariantBox.classList.toggle('hidden', modelKey !== 'gemma4');
+        }
+
+        const unslothVariantBox = document.getElementById('unsloth-variant-container');
+        if (unslothVariantBox) {
+            unslothVariantBox.classList.toggle('hidden', modelKey !== 'unsloth');
+        }
+        if (modelKey === 'unsloth' && state.availableUnslothModels.length === 0) {
+            loadUnslothModels();
         }
 
         updateThinkingContainer();
@@ -670,7 +876,7 @@
         if (modelBadge && modelUsedLabel) {
             let displayLabel = modelUsedLabel;
             const thinkingSelect = document.getElementById('argon-thinking-select');
-            const thinkingLevel = thinkingSelect ? thinkingSelect.value : 'high';
+            const thinkingLevel = thinkingSelect ? thinkingSelect.value : 'medium';
             const isFr = state.currentLang === 'fr';
             const isEn = state.currentLang === 'en';
             const reasonPrefix = isFr ? 'réflexion' : (isEn ? 'reasoning' : 'réflexion / reasoning');
@@ -678,10 +884,14 @@
                 displayLabel = `Gemini (gemini-4-carbon • ${reasonPrefix}: ${thinkingLevel})`;
             } else if (modelUsedLabel === 'hydrogen' || modelUsedLabel === 'gemini-4-hydrogen') {
                 displayLabel = `Gemini (gemini-4-hydrogen • ${reasonPrefix}: ${thinkingLevel})`;
+            } else if (modelUsedLabel === 'neon' || modelUsedLabel === 'neo' || modelUsedLabel === 'gemini-4-neon') {
+                displayLabel = `Gemini (gemini-4-neon • ${reasonPrefix}: ${thinkingLevel})`;
             } else if (modelUsedLabel === 'argon' || modelUsedLabel === 'gemini-4-argon') {
                 displayLabel = `Gemini (gemini-4-argon • ${reasonPrefix}: ${thinkingLevel})`;
             } else if (modelUsedLabel === 'flash' || modelUsedLabel === 'gemini-3.8-flash') {
                 displayLabel = `Gemini (gemini-3.8-flash • ${reasonPrefix}: ${thinkingLevel})`;
+            } else if (modelUsedLabel.startsWith('unsloth:')) {
+                displayLabel = `Unsloth (${modelUsedLabel.slice('unsloth:'.length)})`;
             }
             modelBadge.textContent = displayLabel;
         }
@@ -738,6 +948,8 @@
             errTitle = state.currentLang === 'en'
                 ? "Offline Speech Model Not Cached (Whisper)"
                 : "Modèle Vocal Hors-Ligne Non Mis en Cache (Whisper)";
+        } else if (errMsg.includes("Unsloth")) {
+            errTitle = state.currentLang === 'en' ? "Local Model Error (Unsloth)" : "Erreur Modèle Local (Unsloth)";
         } else if (errMsg.includes("Ollama") || errMsg.includes("Local")) {
             errTitle = state.currentLang === 'en' ? "Local Model Error (Ollama)" : "Erreur Modèle Local (Ollama)";
         } else if (errMsg.includes("Gemini") || errMsg.includes("Remote")) {
@@ -766,11 +978,14 @@
 
         while (true) {
             const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
+            if (done) {
+                buffer += decoder.decode();
+            } else {
+                buffer += decoder.decode(value, { stream: true });
+            }
 
             const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            buffer = done ? '' : (lines.pop() || '');
 
             for (const rawLine of lines) {
                 const trimmed = rawLine.trim();
@@ -817,6 +1032,7 @@
                     return;
                 }
             }
+            if (done) break;
         }
     }
 
@@ -837,11 +1053,41 @@
         const btnContent = btnSubmit.querySelector('.btn-content');
         const btnLoader = btnSubmit.querySelector('.btn-loader');
 
+        if (state.selectedModel === 'gemma4' && !state.selectedOllamaVariant) {
+            const ollamaSelect = document.getElementById('ollama-model-select');
+            if (ollamaSelect) ollamaSelect.focus();
+            showError(
+                state.currentLang === 'en'
+                    ? "No loaded models found in Ollama. Load a model in Ollama and click Refresh."
+                    : "Aucun modèle chargé détecté dans Ollama. Chargez un modèle dans Ollama puis cliquez sur Actualiser."
+            );
+            return;
+        }
+        if (state.selectedModel === 'unsloth' && !state.selectedUnslothVariant) {
+            const unslothSelect = document.getElementById('unsloth-model-select');
+            if (unslothSelect) unslothSelect.focus();
+            showError(
+                state.currentLang === 'en'
+                    ? (state.unslothAuthRequired
+                        ? "Unsloth Studio requires a Bearer token. Set UNSLOTH_STUDIO_AUTH_TOKEN in .env and click Refresh."
+                        : "No loaded models found in Unsloth Studio. Load a model in Unsloth Studio and click Refresh.")
+                    : (state.unslothAuthRequired
+                        ? "Unsloth Studio requiert un jeton Bearer. Définissez UNSLOTH_STUDIO_AUTH_TOKEN dans .env et cliquez sur Actualiser."
+                        : "Aucun modèle chargé détecté dans Unsloth Studio. Chargez un modèle dans Unsloth Studio puis cliquez sur Actualiser.")
+            );
+            return;
+        }
+
         const effectiveModel = (state.selectedModel === 'gemma4')
-            ? (state.selectedOllamaVariant || 'gemma4:latest')
-            : state.selectedModel;
+            ? state.selectedOllamaVariant
+            : (state.selectedModel === 'unsloth')
+                ? `unsloth:${state.selectedUnslothVariant}`
+                : state.selectedModel;
+        const effectiveApiKey = (state.selectedModel === 'unsloth' || state.selectedModel === 'gemma4')
+            ? null
+            : (apiKey || null);
         const thinkingSelect = document.getElementById('argon-thinking-select');
-        const thinkingLevel = thinkingSelect ? thinkingSelect.value : 'high';
+        const thinkingLevel = thinkingSelect ? thinkingSelect.value : 'medium';
         const songCheckbox = document.getElementById('song-mode-checkbox');
         const songMode = songCheckbox ? songCheckbox.checked : false;
 
@@ -891,7 +1137,7 @@
                         url,
                         model: effectiveModel,
                         custom_context: customContext,
-                        api_key: apiKey || null,
+                        api_key: effectiveApiKey,
                         thinking_level: thinkingLevel,
                         lang: state.currentLang,
                         song_mode: songMode,
@@ -925,7 +1171,7 @@
                 formData.append('thinking_level', thinkingLevel);
                 formData.append('lang', state.currentLang);
                 formData.append('song_mode', songMode ? 'true' : 'false');
-                if (apiKey) formData.append('api_key', apiKey);
+                if (effectiveApiKey) formData.append('api_key', effectiveApiKey);
 
                 const response = await fetch('/api/summarize-upload/stream', {
                     method: 'POST',
@@ -976,7 +1222,7 @@
         state.currentSummaryMarkdown = data.summary || '';
         state.currentVideoData = data;
 
-        populateResultHeader(data.metadata, data.transcript_info, data.model_used || 'Ollama Gemma 4');
+        populateResultHeader(data.metadata, data.transcript_info, data.model_used || 'Ollama');
         renderMarkdownIntoSummary(state.currentSummaryMarkdown);
 
         const drawer = document.getElementById('transcript-drawer');
@@ -1051,7 +1297,7 @@
             ? state.currentVideoData.metadata.title
             : 'summary';
         const cleanTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const filename = `${cleanTitle}_devfest_summary.md`;
+        const filename = `${cleanTitle}_gdg_ottawa_summary.md`;
 
         const blob = new Blob([state.currentSummaryMarkdown], { type: 'text/markdown;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -1083,6 +1329,7 @@
         }
         setLanguage(savedLang);
         loadOllamaModels();
+        loadUnslothModels();
 
         // Language switcher buttons
         document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
@@ -1199,10 +1446,10 @@
             });
         }
 
-        // Song Mode checkbox active visual sync
+        // Song Mode checkbox active visual sync (fallback when :has() is unsupported)
         const songCheckbox = document.getElementById('song-mode-checkbox');
         const songCard = document.getElementById('song-mode-card');
-        if (songCheckbox && songCard) {
+        if (!supportsHasSelector && songCheckbox && songCard) {
             songCheckbox.addEventListener('change', () => {
                 songCard.classList.toggle('active', songCheckbox.checked);
             });
@@ -1239,6 +1486,20 @@
         const refreshBtn = document.getElementById('btn-refresh-models');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => loadOllamaModels(true));
+        }
+
+        // Unsloth variant select, bearer token refresh & manual refresh
+        const unslothSelect = document.getElementById('unsloth-model-select');
+        if (unslothSelect) {
+            unslothSelect.addEventListener('change', () => {
+                state.selectedUnslothVariant = unslothSelect.value;
+                updateUnslothModelNote(unslothSelect.value);
+            });
+        }
+
+        const refreshUnslothBtn = document.getElementById('btn-refresh-unsloth-models');
+        if (refreshUnslothBtn) {
+            refreshUnslothBtn.addEventListener('click', () => loadUnslothModels(true));
         }
 
         // Action & Cancel buttons

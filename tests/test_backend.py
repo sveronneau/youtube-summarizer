@@ -3,6 +3,7 @@
 import asyncio
 import os
 import tempfile
+from unittest.mock import patch
 
 import av
 from PIL import Image
@@ -15,7 +16,11 @@ from app.llm_service import (
     _format_gemini_error,
     _is_gemini4_reasoning_model,
     _is_gemini_reasoning_model,
+    _is_unsloth_model,
     _normalize_thinking_level,
+    _strip_unsloth_prefix,
+    get_ollama_models,
+    get_unsloth_models,
     resolve_model_name,
 )
 from app.transcription_service import (
@@ -67,9 +72,22 @@ def test_model_resolution() -> None:
     assert resolve_model_name("gemma4") == "gemma4:latest"
     assert resolve_model_name("gemma4:12b") == "gemma4:12b"
     assert resolve_model_name("gemma4:26b") == "gemma4:26b"
+    assert resolve_model_name("unsloth") == "unsloth:unsloth/gemma-4-12b-it-GGUF"
+    assert resolve_model_name("unsloth-gemma4") == "unsloth:unsloth/gemma-4-12b-it-GGUF"
+    assert resolve_model_name("unsloth:unsloth/gemma-4-26b-a4b-it-GGUF") == "unsloth:unsloth/gemma-4-26b-a4b-it-GGUF"
+    assert resolve_model_name("unsloth:unsloth/gemma-4-31b-it-GGUF") == "unsloth:unsloth/gemma-4-31b-it-GGUF"
+    assert _is_unsloth_model("unsloth")
+    assert _is_unsloth_model("unsloth:unsloth/gemma-4-12b-it-GGUF")
+    assert not _is_unsloth_model("gemma4:latest")
+    assert _strip_unsloth_prefix("unsloth:unsloth/gemma-4-12b-it-GGUF") == "unsloth/gemma-4-12b-it-GGUF"
+    assert _strip_unsloth_prefix("unsloth/gemma-4-31b-it-GGUF") == "unsloth/gemma-4-31b-it-GGUF"
     assert resolve_model_name("flash") == "gemini-3.8-flash"
     assert resolve_model_name("hydrogen") == "gemini-4-hydrogen"
     assert resolve_model_name("gemini-hydrogen") == "gemini-4-hydrogen"
+    assert resolve_model_name("neon") == "gemini-4-neon"
+    assert resolve_model_name("neo") == "gemini-4-neon"
+    assert resolve_model_name("gemini-neon") == "gemini-4-neon"
+    assert resolve_model_name("gemini-4-neon") == "gemini-4-neon"
     assert resolve_model_name("argon") == "gemini-4-argon"
     assert resolve_model_name("pro") == "gemini-4-argon"
     assert resolve_model_name("carbon") == "gemini-4-carbon"
@@ -79,19 +97,27 @@ def test_model_resolution() -> None:
     assert resolve_model_name("gemini-4-argon") == "gemini-4-argon"
     assert resolve_model_name("gemini-4-carbon") == "gemini-4-carbon"
     assert _is_gemini4_reasoning_model("gemini-4-hydrogen")
+    assert _is_gemini4_reasoning_model("gemini-4-neon")
     assert _is_gemini4_reasoning_model("gemini-4-argon")
     assert _is_gemini4_reasoning_model("gemini-4-carbon")
     assert not _is_gemini4_reasoning_model("gemini-3.8-flash")
     assert _is_gemini_reasoning_model("gemini-3.8-flash")
     assert _is_gemini_reasoning_model("gemini-4-hydrogen")
+    assert _is_gemini_reasoning_model("gemini-4-neon")
     assert _is_gemini_reasoning_model("gemini-4-argon")
     assert _is_gemini_reasoning_model("gemini-4-carbon")
     assert _canonical_gemini4_model("gemini-3.8-flash") == "gemini-3.8-flash"
     assert _canonical_gemini4_model("gemini-4-hydrogen") == "gemini-4-hydrogen"
+    assert _canonical_gemini4_model("gemini-4-neon") == "gemini-4-neon"
     assert _canonical_gemini4_model("gemini-4-argon") == "gemini-4-argon"
     assert _canonical_gemini4_model("gemini-4-carbon") == "gemini-4-carbon"
     assert _normalize_thinking_level("gemini-4-hydrogen", "xhigh") == "xhigh"
+    assert _normalize_thinking_level("gemini-4-neon", "xhigh") == "xhigh"
     assert _normalize_thinking_level("gemini-4-argon", "xhigh") == "high"
+    assert _normalize_thinking_level("gemini-4-hydrogen", "") == "medium"
+    assert _normalize_thinking_level("gemini-4-neon", "") == "medium"
+    assert _normalize_thinking_level("gemini-4-argon", "") == "medium"
+    assert _normalize_thinking_level("gemini-4-carbon", "") == "medium"
     assert _normalize_thinking_level("gemini-3.8-flash", "medium") == "medium"
     mm_input = _build_interactions_input("Summarize frames", ["YWJj"])
     assert isinstance(mm_input, list) and mm_input[0]["type"] == "image"
@@ -166,6 +192,99 @@ def test_visual_video_frame_extraction() -> None:
     print("✅ Visual video frame extraction tests (short & seekable) passed.")
 
 
+async def test_loaded_only_model_discovery() -> None:
+    """Verify Ollama (/api/ps) and Unsloth (/v1/models) return only currently loaded LLM models."""
+
+    class _FakeResp:
+        def __init__(self, status_code: int, payload: dict) -> None:
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self) -> dict:
+            return self._payload
+
+    class _FakeClient:
+        def __init__(self, routes: dict) -> None:
+            self.routes = routes
+            self.last_headers: dict = {}
+
+        async def get(self, url: str, headers: dict = None, **_kwargs) -> _FakeResp:
+            self.last_headers = headers or {}
+            for suffix, payload in self.routes.items():
+                if url.endswith(suffix):
+                    return _FakeResp(200, payload)
+            return _FakeResp(404, {})
+
+    ollama_payload = {
+        "models": [
+            {
+                "name": "gemma4:12b",
+                "model": "gemma4:12b",
+                "size": 9 * 1024 ** 3,
+                "size_vram": 8 * 1024 ** 3,
+                "context_length": 32768,
+                "details": {"parameter_size": "11.9B", "family": "gemma"},
+            }
+        ]
+    }
+    unsloth_payload = {
+        "object": "list",
+        "data": [
+            {
+                "id": "unsloth/gemma-4-12b-it-GGUF",
+                "object": "model",
+                "owned_by": "unsloth",
+                "context_length": 32768,
+            },
+            {
+                "id": "unsloth/gemma-4-e2b-it-GGUF",
+                "object": "model",
+                "owned_by": "unsloth",
+                "status": {"value": "unloaded"},
+            },
+            {
+                "id": "nomic-embed-text-v1.5",
+                "type": "embedding",
+                "owned_by": "unsloth",
+            },
+        ],
+    }
+
+    fake_client = _FakeClient({"/api/ps": ollama_payload, "/v1/models": unsloth_payload})
+    with patch("app.llm_service.get_llm_http_client", return_value=fake_client):
+        ol_res = await get_ollama_models()
+        assert ol_res["success"] is True and ol_res["loaded_only"] is True
+        assert ol_res["count"] == 1
+        assert ol_res["models"][0]["name"] == "gemma4:12b"
+        assert ol_res["models"][0]["loaded"] is True
+
+        uns_res = await get_unsloth_models(api_key_override="sk-unsloth-test-token")
+        assert uns_res["success"] is True and uns_res["loaded_only"] is True
+        assert uns_res["count"] == 1
+        assert uns_res["models"][0]["name"] == "unsloth/gemma-4-12b-it-GGUF"
+        assert uns_res["models"][0]["loaded"] is True
+        assert fake_client.last_headers.get("Authorization") == "Bearer sk-unsloth-test-token"
+
+        with patch.dict(os.environ, {"UNSLOTH_STUDIO_AUTH_TOKEN": "env-unsloth-token"}):
+            uns_env_res = await get_unsloth_models()
+            assert uns_env_res["success"] is True
+            assert fake_client.last_headers.get("Authorization") == "Bearer env-unsloth-token"
+
+        with patch.dict(os.environ, {"UNSLOTH_STUDIO_AUTH_TOKEN": "env-unsloth-token"}):
+            uns_env_res = await get_unsloth_models()
+            assert uns_env_res["success"] is True and uns_env_res["count"] == 1
+            assert fake_client.last_headers.get("Authorization") == "Bearer env-unsloth-token"
+
+    empty_client = _FakeClient({"/api/ps": {"models": []}, "/v1/models": {"data": []}})
+    with patch("app.llm_service.get_llm_http_client", return_value=empty_client):
+        ol_empty = await get_ollama_models()
+        assert ol_empty["success"] is True and ol_empty["count"] == 0
+        uns_empty = await get_unsloth_models()
+        assert uns_empty["success"] is True and uns_empty["count"] == 0
+
+    print("✅ Loaded-only model discovery tests (Ollama /api/ps & Unsloth /v1/models) passed.")
+
+
 async def test_youtube_metadata_and_transcript() -> None:
     """Verify metadata structure and fallback transcript handling."""
     test_id = "dQw4w9WgXcQ"
@@ -186,4 +305,5 @@ if __name__ == "__main__":
     test_context_budget_and_gemini_error_classification()
     test_song_lyrics_detection()
     test_visual_video_frame_extraction()
+    asyncio.run(test_loaded_only_model_discovery())
     asyncio.run(test_youtube_metadata_and_transcript())
