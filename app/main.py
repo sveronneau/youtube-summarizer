@@ -9,7 +9,10 @@ import shutil
 import tempfile
 from typing import Any, AsyncIterator, Dict, Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+
+load_dotenv()
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -18,6 +21,7 @@ from app.llm_service import (
     close_llm_client,
     generate_youtube_summary,
     get_ollama_models,
+    get_unsloth_models,
     stream_youtube_summary,
 )
 from app.transcription_service import (
@@ -59,10 +63,10 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Video Summarizer • DevFest Sherbrooke",
+    title="Video Summarizer • GDG Ottawa — Learn, Build & Jingle",
     description=(
-        "Summarize YouTube videos & local media files using Ollama Gemma 4 & Gemini models "
-        "- DevFest Sherbrooke & Eastern Townships Edition"
+        "Summarize YouTube videos & local media files using Ollama Gemma 4, Unsloth Studio Gemma 4 & Gemini 4 models "
+        "- GDG Ottawa Festive Google Codelab & Holiday Celebration (Dec 15, 2026)"
     ),
     version="2.2.0",
     lifespan=lifespan,
@@ -99,8 +103,8 @@ class SummarizeRequest(BaseModel):
         default="gemma4",
         max_length=128,
         description=(
-            "Choice of model: 'gemma4' (Ollama Local), 'flash' (Gemini 3.8 Flash), "
-            "'argon' (Gemini 4 Argon), or 'carbon' (Gemini 4 Carbon)"
+            "Choice of model: 'gemma4' (Ollama Local), 'unsloth:<model_id>' (Unsloth Studio Local), "
+            "'hydrogen' (Gemini 4 Hydrogen), 'neon' (Gemini 4 Neon), 'argon' (Gemini 4 Argon), or 'carbon' (Gemini 4 Carbon)"
         ),
     )
     custom_context: Optional[str] = Field(
@@ -114,8 +118,8 @@ class SummarizeRequest(BaseModel):
         description="Optional user-provided Gemini API key",
     )
     thinking_level: Optional[str] = Field(
-        default="high",
-        description="Reasoning depth for Gemini 4 (Hydrogen, Argon, Carbon): 'low', 'medium', 'high', or 'xhigh' (Hydrogen)",
+        default="medium",
+        description="Reasoning depth for Gemini 4 (Hydrogen, Neon, Argon, Carbon): 'low', 'medium', 'high', or 'xhigh' (Hydrogen & Neon)",
     )
     lang: Optional[str] = Field(
         default="bi", description="Interface language preference: 'fr', 'en', or 'bi'"
@@ -159,7 +163,7 @@ async def serve_index() -> Any:
     if os.path.exists(index_path):
         return FileResponse(index_path, headers={"Cache-Control": "no-cache"})
     return {
-        "message": "Welcome to Video Summarizer (DevFest Sherbrooke • GDG Cloud Sherbrooke) API"
+        "message": "Welcome to Video Summarizer (GDG Ottawa — Learn, Build & Jingle) API"
     }
 
 
@@ -174,8 +178,14 @@ async def serve_favicon() -> Any:
 
 @app.get("/api/ollama/models")
 async def list_ollama_models() -> Dict[str, Any]:
-    """List models available on the local Ollama server."""
+    """List models currently loaded in memory on the local Ollama server."""
     return await get_ollama_models()
+
+
+@app.get("/api/unsloth/models")
+async def list_unsloth_models() -> Dict[str, Any]:
+    """List models currently loaded in memory on the local Unsloth Studio server."""
+    return await get_unsloth_models()
 
 
 @app.post("/api/video-info")
@@ -230,7 +240,7 @@ async def summarize_video(req: SummarizeRequest) -> Dict[str, Any]:
             model_choice=req.model,
             custom_context=req.custom_context,
             api_key_override=req.api_key,
-            thinking_level=req.thinking_level or "high",
+            thinking_level=req.thinking_level or "medium",
             lang=req.lang or "bi",
             song_mode=req.song_mode,
             video_frames=video_frames if video_frames else None,
@@ -340,7 +350,7 @@ async def summarize_video_stream(req: SummarizeRequest) -> StreamingResponse:
                 model_choice=req.model,
                 custom_context=req.custom_context,
                 api_key_override=req.api_key,
-                thinking_level=req.thinking_level or "high",
+                thinking_level=req.thinking_level or "medium",
                 lang=req.lang or "bi",
                 song_mode=req.song_mode,
                 video_frames=video_frames if video_frames else None,
@@ -379,7 +389,7 @@ async def summarize_uploaded_file(
     model: str = Form("gemma4"),
     custom_context: Optional[str] = Form(""),
     api_key: Optional[str] = Form(None),
-    thinking_level: Optional[str] = Form("high"),
+    thinking_level: Optional[str] = Form("medium"),
     lang: Optional[str] = Form("bi"),
     song_mode: bool = Form(False),
 ) -> Dict[str, Any]:
@@ -445,7 +455,7 @@ async def summarize_uploaded_file(
             model_choice=model,
             custom_context=custom_context,
             api_key_override=api_key,
-            thinking_level=thinking_level or "high",
+            thinking_level=thinking_level or "medium",
             lang=lang or "bi",
             song_mode=song_mode,
             video_frames=video_frames if video_frames else None,
@@ -497,7 +507,7 @@ async def summarize_uploaded_file_stream(
     model: str = Form("gemma4"),
     custom_context: Optional[str] = Form(""),
     api_key: Optional[str] = Form(None),
-    thinking_level: Optional[str] = Form("high"),
+    thinking_level: Optional[str] = Form("medium"),
     lang: Optional[str] = Form("bi"),
     song_mode: bool = Form(False),
 ) -> StreamingResponse:
@@ -599,7 +609,7 @@ async def summarize_uploaded_file_stream(
                 model_choice=model,
                 custom_context=custom_context,
                 api_key_override=api_key,
-                thinking_level=thinking_level or "high",
+                thinking_level=thinking_level or "medium",
                 lang=lang or "bi",
                 song_mode=song_mode,
                 video_frames=video_frames if video_frames else None,

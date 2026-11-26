@@ -1,22 +1,28 @@
 /* ==========================================================================
-   Video Summarizer - DevFest Sherbrooke & Eastern Townships Styling
-   GDG Cloud Sherbrooke Theme
+   Video Summarizer - GDG Ottawa: Learn, Build & Jingle Holiday Theme
+   Festive Winter Workshop Edition
    ========================================================================== */
 
 :root {
-    /* DevFest & Eastern Townships Palette */
+    /* GDG & Festive Holiday Palette */
     --df-blue: #1A73E8;
     --df-blue-dark: #0D47A1;
     --df-blue-light: #E8F0FE;
 
-    --sherb-green: #0F9D58;
-    --sherb-green-dark: #0B6B3A;
-    --sherb-green-light: #E6F4EA;
+    --sherb-green: #0F7B47;
+    --sherb-green-dark: #0A5832;
+    --sherb-green-light: #ECFDF3;
 
-    --maple-red: #D93025;
-    --maple-red-hover: #B31412;
-    --orford-amber: #F9AB00;
-    --orford-amber-light: #FEF7E0;
+    --maple-red: #C62828;
+    --maple-red-hover: #9B1C1C;
+    --orford-amber: #D97706;
+    --orford-amber-light: #FEF3C7;
+
+    --holiday-crimson: #C62828;
+    --holiday-crimson-dark: #9B1C1C;
+    --holiday-crimson-light: #FEF2F2;
+    --holiday-gold: #D97706;
+    --holiday-gold-light: #FEF3C7;
 
     --slate-dark: #0F172A;
     --text-main: #1E293B;
@@ -28,8 +34,8 @@
     --border-highlight: #A7F3D0;
 
     --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.04);
-    --shadow-md: 0 10px 25px -5px rgba(15, 157, 88, 0.08), 0 8px 10px -6px rgba(26, 115, 232, 0.05);
-    --shadow-lg: 0 20px 35px -10px rgba(11, 107, 58, 0.16);
+    --shadow-md: 0 10px 25px -5px rgba(15, 123, 71, 0.09), 0 8px 10px -6px rgba(198, 40, 40, 0.05);
+    --shadow-lg: 0 20px 35px -10px rgba(10, 88, 50, 0.16);
 
     --radius-lg: 18px;
     --radius-md: 12px;
@@ -44,7 +50,11 @@
 
 body {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background-color: var(--bg-page);
+    background:
+        radial-gradient(circle at 12% 8%, rgba(15, 123, 71, 0.07), transparent 36%),
+        radial-gradient(circle at 88% 10%, rgba(198, 40, 40, 0.06), transparent 34%),
+        radial-gradient(circle at 50% 0%, rgba(217, 119, 6, 0.05), transparent 42%),
+        var(--bg-page);
     color: var(--text-main);
     line-height: 1.6;
     min-height: 100vh;
@@ -53,7 +63,7 @@ body {
     overflow-x: hidden;
 }
 
-/* Background Eastern Townships Mountains & Pine Horizon */
+/* Background Festive Winter Snowy Hills & Pine Horizon */
 .townships-backdrop {
     position: fixed;
     bottom: 0;
@@ -125,9 +135,9 @@ body {
 }
 
 .lang-btn.active {
-    background: var(--df-blue);
+    background: var(--sherb-green);
     color: #FFFFFF;
-    box-shadow: 0 2px 6px rgba(26, 115, 232, 0.3);
+    box-shadow: 0 2px 6px rgba(15, 123, 71, 0.28);
 }
 
 /* Header */
@@ -146,8 +156,8 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: linear-gradient(135deg, var(--sherb-green-light) 0%, var(--df-blue-light) 100%);
-    border: 1.5px solid #A7F3D0;
+    background: linear-gradient(135deg, #ECFDF3 0%, #FEF3C7 55%, #FEF2F2 100%);
+    border: 1.5px solid #FCD34D;
     color: var(--sherb-green-dark);
     padding: 7px 18px;
     border-radius: 30px;
@@ -170,22 +180,23 @@ body {
 }
 
 .badge-sub {
-    color: var(--df-blue);
+    color: var(--holiday-crimson);
     font-weight: 600;
 }
 
 .main-title {
     font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 2.7rem;
+    font-size: clamp(1.75rem, 1.25rem + 2vw, 2.7rem);
     font-weight: 700;
     color: var(--slate-dark);
     letter-spacing: -0.8px;
     margin-bottom: 8px;
     line-height: 1.2;
+    text-wrap: balance;
 }
 
 .accent-text {
-    background: linear-gradient(135deg, var(--sherb-green) 0%, var(--df-blue) 100%);
+    background: linear-gradient(135deg, var(--sherb-green) 0%, var(--holiday-crimson) 60%, var(--holiday-gold) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -197,6 +208,22 @@ body {
     color: var(--text-muted);
     font-size: 1.05rem;
     font-weight: 500;
+    text-wrap: pretty;
+}
+
+.event-meta-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid #FDE68A;
+    color: var(--text-main);
+    font-size: 0.86rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
 }
 
 /* Main Card */
@@ -255,10 +282,10 @@ body {
 
 .tab-btn[aria-selected="true"],
 .tab-btn.active {
-    background: linear-gradient(135deg, var(--sherb-green) 0%, var(--df-blue) 100%);
+    background: linear-gradient(135deg, var(--sherb-green) 0%, var(--holiday-crimson) 100%);
     border-color: transparent;
     color: #FFFFFF;
-    box-shadow: 0 4px 12px rgba(15, 157, 88, 0.25);
+    box-shadow: 0 4px 12px rgba(15, 123, 71, 0.25);
 }
 
 /* Shape underline preserved in Forced Colors Mode (WCAG 1.4.1) */
@@ -490,7 +517,7 @@ body {
 .model-cards-grid {
     inline-size: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
     grid-auto-rows: auto 1fr;
     gap: 12px;
 }
@@ -498,7 +525,7 @@ body {
 .model-cards-grid-4 {
     inline-size: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
     grid-auto-rows: auto 1fr;
     gap: 12px;
 }
@@ -523,10 +550,18 @@ body {
     background: #FFFFFF;
 }
 
-.model-card.active {
+.model-card:has(input[type="radio"]:checked) {
     border-color: var(--sherb-green);
     background: var(--sherb-green-light);
     box-shadow: 0 0 0 3px rgba(15, 157, 88, 0.12);
+}
+
+@supports not selector(:has(*)) {
+    .model-card.active {
+        border-color: var(--sherb-green);
+        background: var(--sherb-green-light);
+        box-shadow: 0 0 0 3px rgba(15, 157, 88, 0.12);
+    }
 }
 
 .model-card-header {
@@ -552,7 +587,9 @@ body {
 }
 
 .tag-ollama { background: #D1FAE5; color: #047857; }
+.tag-unsloth { background: #ECFEFF; color: #155E75; }
 .tag-hydrogen { background: #CCFBF1; color: #0F766E; }
+.tag-neon { background: #FCE7F3; color: #BE185D; }
 .tag-pro { background: #F3E8FF; color: #7C3AED; }
 .tag-carbon { background: #E0F2FE; color: #0369A1; }
 
@@ -560,6 +597,7 @@ body {
     font-size: 0.85rem;
     color: var(--text-muted);
     line-height: 1.4;
+    text-wrap: pretty;
 }
 
 /* Local Ollama Model Variant Box */
@@ -622,9 +660,74 @@ body {
     cursor: pointer;
 }
 
+.variant-select:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+    background: #F8FAFC;
+    color: var(--text-muted);
+}
+
 .variant-select:focus {
     border-color: var(--sherb-green);
     box-shadow: 0 0 0 3px rgba(15, 157, 88, 0.15);
+}
+
+@supports (appearance: base-select) {
+    .variant-select,
+    .variant-select::picker(select) {
+        appearance: base-select;
+    }
+
+    .variant-select {
+        inline-size: 100%;
+    }
+
+    .variant-select::picker-icon {
+        color: var(--sherb-green-dark);
+    }
+
+    .variant-select::picker(select) {
+        background: #FFFFFF;
+        border: 1.5px solid var(--border-color);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-md);
+        padding: 4px;
+    }
+
+    .variant-select option {
+        padding: 8px 12px;
+        border-radius: var(--radius-sm);
+        color: var(--slate-dark);
+        cursor: pointer;
+    }
+
+    .variant-select option:hover {
+        background: #F1F5F9;
+    }
+
+    .variant-select option::checkmark {
+        color: var(--sherb-green-dark);
+    }
+
+    .variant-select option:checked {
+        background: var(--sherb-green-light);
+        color: var(--sherb-green-dark);
+        font-weight: 700;
+    }
+
+    .unsloth-select::picker-icon,
+    .unsloth-select option::checkmark {
+        color: #155E75;
+    }
+
+    .unsloth-select option:hover {
+        background: #ECFEFF;
+    }
+
+    .unsloth-select option:checked {
+        background: #CFFAFE;
+        color: #164E63;
+    }
 }
 
 .variant-note {
@@ -634,11 +737,55 @@ body {
     color: #15803D;
 }
 
-/* Textarea */
+/* Local Unsloth Studio Variant Box */
+.unsloth-variant-box {
+    background: #ECFEFF;
+    border-color: #67E8F9;
+}
+
+.unsloth-variant-box .variant-label {
+    color: #155E75;
+}
+
+.icon-chip-unsloth {
+    color: #0891B2;
+}
+
+.btn-refresh-unsloth {
+    background: #CFFAFE;
+    border-color: #67E8F9;
+    color: #155E75;
+}
+
+.btn-refresh-unsloth:hover {
+    background: #A5F3FC;
+    color: #164E63;
+}
+
+.unsloth-select {
+    border-color: #67E8F9;
+    color: #164E63;
+}
+
+.unsloth-select:focus {
+    border-color: #0891B2;
+    box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.16);
+}
+
+.unsloth-note {
+    color: #0E7490;
+}
+
+/* Textarea (auto-sizing progressive enhancement) */
 .textarea-control {
+    width: 100%;
+    height: auto;
     padding-left: 16px;
     resize: vertical;
     min-height: 80px;
+    field-sizing: content;
+    min-block-size: 3lh;
+    max-block-size: 10lh;
 }
 
 /* Native <details> + <summary> API Key Disclosure */
@@ -715,10 +862,10 @@ details:not([open])::details-content {
     }
 }
 
-/* Submit Button - DevFest Sherbrooke Green & Blue Gradient */
+/* Submit Button - Festive Evergreen & Cranberry Gradient */
 .btn-devfest {
     width: 100%;
-    background: linear-gradient(135deg, var(--sherb-green) 0%, var(--df-blue) 100%);
+    background: linear-gradient(135deg, var(--sherb-green) 0%, var(--holiday-crimson) 100%);
     color: #FFFFFF;
     border: none;
     padding: 16px;
@@ -726,14 +873,14 @@ details:not([open])::details-content {
     font-weight: 700;
     border-radius: var(--radius-md);
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(15, 157, 88, 0.35);
+    box-shadow: 0 4px 14px rgba(15, 123, 71, 0.30);
     transition: all 0.2s ease;
 }
 
 .btn-devfest:hover:not(:disabled) {
-    background: linear-gradient(135deg, var(--sherb-green-dark) 0%, var(--df-blue-dark) 100%);
+    background: linear-gradient(135deg, var(--sherb-green-dark) 0%, var(--holiday-crimson-dark) 100%);
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(15, 157, 88, 0.45);
+    box-shadow: 0 6px 18px rgba(15, 123, 71, 0.40);
 }
 
 .btn-devfest:disabled {
@@ -777,6 +924,7 @@ details:not([open])::details-content {
     font-size: 1.2rem;
     color: var(--slate-dark);
     margin: 14px 0 10px;
+    text-wrap: balance;
 }
 
 .loading-progress {
@@ -984,6 +1132,11 @@ details:not([open])::details-content {
     margin-bottom: 0.6em;
     font-weight: 700;
     font-family: 'Space Grotesk', sans-serif;
+    text-wrap: balance;
+}
+
+.markdown-body p, .markdown-body li {
+    text-wrap: pretty;
 }
 
 .markdown-body h2 {
@@ -1098,6 +1251,7 @@ details:not([open])::details-content {
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--slate-dark);
+    text-wrap: balance;
 }
 
 :where(button, summary, .file-drop-zone):focus-visible,
@@ -1107,7 +1261,7 @@ details:not([open])::details-content {
     outline-offset: 2px;
 }
 
-/* DevFest Sherbrooke Footer */
+/* GDG Ottawa Footer */
 .devfest-footer {
     text-align: center;
     margin-top: 40px;
@@ -1158,10 +1312,18 @@ details:not([open])::details-content {
     background: #F0FDF4;
 }
 
-.song-mode-box.active {
+.song-mode-box:has(input[type="checkbox"]:checked) {
     border-color: var(--sherb-green);
     background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
     box-shadow: 0 2px 8px rgba(21, 128, 61, 0.12);
+}
+
+@supports not selector(:has(*)) {
+    .song-mode-box.active {
+        border-color: var(--sherb-green);
+        background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
+        box-shadow: 0 2px 8px rgba(21, 128, 61, 0.12);
+    }
 }
 
 .song-mode-input {

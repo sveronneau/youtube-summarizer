@@ -1,4 +1,4 @@
-"""LLM orchestration service supporting local Ollama (Gemma 4) and Google Gemini APIs (batch & streaming)."""
+"""LLM orchestration service supporting local Ollama, local Unsloth Studio, and Google Gemini APIs (batch & streaming)."""
 
 import asyncio
 import base64
@@ -7,15 +7,21 @@ import hashlib
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional
 
+from dotenv import dotenv_values
 import httpx
 from google import genai
 from google.genai import types
 
 logger = logging.getLogger(__name__)
 
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
+UNSLOTH_HOST = os.getenv("UNSLOTH_HOST", "http://127.0.0.1:8888")
+UNSLOTH_DEFAULT_MODEL = os.getenv("UNSLOTH_DEFAULT_MODEL", "unsloth/gemma-4-12b-it-GGUF")
 MAX_TRANSCRIPT_CHARS = int(os.getenv("MAX_TRANSCRIPT_CHARS", "120000"))
 
 MODEL_MAPPING = {
@@ -23,10 +29,16 @@ MODEL_MAPPING = {
     "gemma4:latest": "gemma4:latest",
     "gemma": "gemma4:latest",
     "ollama": "gemma4:latest",
+    "unsloth": f"unsloth:{UNSLOTH_DEFAULT_MODEL}",
+    "unsloth-gemma4": f"unsloth:{UNSLOTH_DEFAULT_MODEL}",
     "flash": "gemini-3.8-flash",
     "hydrogen": "gemini-4-hydrogen",
     "gemini-hydrogen": "gemini-4-hydrogen",
     "gemini-4-hydrogen": "gemini-4-hydrogen",
+    "neon": "gemini-4-neon",
+    "neo": "gemini-4-neon",
+    "gemini-neon": "gemini-4-neon",
+    "gemini-4-neon": "gemini-4-neon",
     "argon": "gemini-4-argon",
     "gemini-argon": "gemini-4-argon",
     "gemini-4-argon": "gemini-4-argon",
@@ -82,21 +94,88 @@ def _scrub_secret(msg: str, secret: Optional[str]) -> str:
     return msg
 
 
+def _unsloth_api_base() -> str:
+    """Return the normalized OpenAI-compatible Unsloth Studio API base URL."""
+    base = UNSLOTH_HOST.rstrip("/")
+    if base.endswith("/v1") or base.endswith("/api/v1"):
+        return base
+    return f"{base}/v1"
+
+
+def _unsloth_resolve_api_key(api_key_override: Optional[str] = None) -> str:
+    """Resolve Unsloth Bearer token from override, env vars, or live .env file."""
+    override = (api_key_override or "").strip()
+    if override:
+        return override
+
+    env_token = (os.getenv("UNSLOTH_STUDIO_AUTH_TOKEN") or "").strip()
+    if env_token:
+        return env_token
+
+    file_values: Dict[str, Optional[str]] = {}
+    if _ENV_FILE.is_file():
+        try:
+            file_values = dotenv_values(_ENV_FILE)
+        except Exception as exc:
+            logger.debug("Could not read %s: %s", _ENV_FILE, exc)
+
+    file_token = (file_values.get("UNSLOTH_STUDIO_AUTH_TOKEN") or "").strip()
+    if file_token:
+        return file_token
+
+    return (
+        (os.getenv("UNSLOTH_API_KEY") or "").strip()
+        or (file_values.get("UNSLOTH_API_KEY") or "").strip()
+    )
+
+
+def _unsloth_headers(api_key_override: Optional[str] = None) -> Dict[str, str]:
+    """Return Authorization header when an Unsloth Studio token is available."""
+    api_key = _unsloth_resolve_api_key(api_key_override)
+    if api_key:
+        return {"Authorization": f"Bearer {api_key}"}
+    return {}
+
+
+def _is_unsloth_model(model_name: str) -> bool:
+    """Return True if the resolved or requested model targets Unsloth Studio."""
+    low = (model_name or "").strip().lower()
+    return low == "unsloth" or low.startswith("unsloth:")
+
+
+def _strip_unsloth_prefix(model_name: str) -> str:
+    """Extract the underlying Unsloth model ID from an `unsloth:<id>` specifier."""
+    raw = (model_name or "").strip()
+    if raw.lower().startswith("unsloth:"):
+        raw = raw.split(":", 1)[1].strip()
+    elif raw.lower() == "unsloth":
+        raw = ""
+    return raw or UNSLOTH_DEFAULT_MODEL
+
+
 def resolve_model_name(requested_model: str) -> str:
     """Resolve user selection to official model identifier."""
     if not requested_model:
         return "gemma4:latest"
-    if ":" in requested_model:
-        return requested_model.strip()
-    req_lower = requested_model.strip().lower()
+    stripped = requested_model.strip()
+    if stripped.lower().startswith("unsloth:"):
+        raw_id = stripped.split(":", 1)[1].strip() or UNSLOTH_DEFAULT_MODEL
+        return f"unsloth:{raw_id}"
+    if ":" in stripped:
+        return stripped
+    req_lower = stripped.lower()
     if req_lower in MODEL_MAPPING:
         return MODEL_MAPPING[req_lower]
+    if "unsloth" in req_lower:
+        return f"unsloth:{UNSLOTH_DEFAULT_MODEL}"
     if "gemma" in req_lower or "ollama" in req_lower:
         return "gemma4:latest"
     if "carbon" in req_lower:
         return "gemini-4-carbon"
     if "hydrogen" in req_lower:
         return "gemini-4-hydrogen"
+    if "neon" in req_lower or req_lower == "neo":
+        return "gemini-4-neon"
     if "argon" in req_lower or "pro" in req_lower:
         return "gemini-4-argon"
     if "flash" in req_lower:
@@ -105,15 +184,15 @@ def resolve_model_name(requested_model: str) -> str:
 
 
 def _is_gemini4_reasoning_model(model_name: str) -> bool:
-    """Return True if the resolved model is Gemini 4 Hydrogen, Argon, or Carbon."""
+    """Return True if the resolved model is Gemini 4 Hydrogen, Neon, Argon, or Carbon."""
     low = model_name.lower()
-    return "hydrogen" in low or "argon" in low or "carbon" in low
+    return "hydrogen" in low or "neon" in low or "argon" in low or "carbon" in low
 
 
 def _is_gemini_reasoning_model(model_name: str) -> bool:
     """Return True if the resolved model supports configurable thinking_level."""
     low = model_name.lower()
-    return "flash" in low or "hydrogen" in low or "argon" in low or "carbon" in low
+    return "flash" in low or "hydrogen" in low or "neon" in low or "argon" in low or "carbon" in low
 
 
 def _canonical_gemini4_model(model_name: str) -> str:
@@ -121,6 +200,8 @@ def _canonical_gemini4_model(model_name: str) -> str:
     low = model_name.lower()
     if "carbon" in low:
         return "gemini-4-carbon"
+    if "neon" in low:
+        return "gemini-4-neon"
     if "hydrogen" in low:
         return "gemini-4-hydrogen"
     if "flash" in low:
@@ -129,13 +210,14 @@ def _canonical_gemini4_model(model_name: str) -> str:
 
 
 def _normalize_thinking_level(model_name: str, thinking_level: str) -> str:
-    """Clamp thinking_level to valid values for the target model ('xhigh' is Hydrogen-only)."""
-    lvl = (thinking_level or "high").strip().lower()
-    if "hydrogen" in model_name.lower():
-        return lvl if lvl in ("low", "medium", "high", "xhigh") else "high"
+    """Clamp thinking_level to valid values for the target model ('xhigh' is Hydrogen & Neon)."""
+    lvl = (thinking_level or "medium").strip().lower()
+    low = model_name.lower()
+    if "hydrogen" in low or "neon" in low:
+        return lvl if lvl in ("low", "medium", "high", "xhigh") else "medium"
     if lvl == "xhigh":
         return "high"
-    return lvl if lvl in ("low", "medium", "high") else "high"
+    return lvl if lvl in ("low", "medium", "high") else "medium"
 
 
 def _fit_transcript_to_budget(
@@ -195,8 +277,8 @@ def _compute_ollama_options(prompt: str, model_name: str) -> Optional[Dict[str, 
 
 
 async def get_ollama_models() -> Dict[str, Any]:
-    """Retrieve list of available models from local Ollama instance."""
-    url = f"{OLLAMA_HOST.rstrip('/')}/api/tags"
+    """Retrieve currently loaded models from local Ollama `/api/ps`."""
+    url = f"{OLLAMA_HOST.rstrip('/')}/api/ps"
     client = get_llm_http_client()
     try:
         res = await client.get(url, timeout=10.0)
@@ -204,28 +286,34 @@ async def get_ollama_models() -> Dict[str, Any]:
             data = res.json()
             models = []
             for m in data.get("models", []):
-                name = m.get("name", "")
-                details = m.get("details", {})
-                param_size = details.get("parameter_size", "")
+                name = str(m.get("name") or m.get("model") or "").strip()
+                if not name:
+                    continue
+                details = m.get("details") or {}
+                param_size = str(details.get("parameter_size") or "")
                 size_bytes = m.get("size", 0)
                 size_gb = round(size_bytes / (1024 ** 3), 1) if size_bytes else 0
-                ctx_len = details.get("context_length", 0)
-                if name and ctx_len:
-                    _ollama_context_lengths[name] = int(ctx_len)
+                vram_bytes = m.get("size_vram", 0)
+                size_vram_gb = round(vram_bytes / (1024 ** 3), 1) if vram_bytes else 0
+                ctx_len = int(m.get("context_length") or details.get("context_length") or 0)
+                if ctx_len:
+                    _ollama_context_lengths[name] = ctx_len
 
                 is_gemma = (
                     "gemma" in name.lower()
-                    or "gemma" in details.get("family", "").lower()
+                    or "gemma" in str(details.get("family") or "").lower()
                 )
 
                 label = name
+                meta_parts: List[str] = []
                 if param_size:
-                    label += f" ({param_size}"
-                    if any(tag in name.lower() for tag in ("12b", "26b", "27b")):
-                        label += " - More Powerful"
-                    elif "latest" in name.lower() or "8b" in name.lower():
-                        label += " - Fast & Balanced"
-                    label += ")"
+                    meta_parts.append(param_size)
+                if size_vram_gb:
+                    meta_parts.append(f"{size_vram_gb} GB VRAM")
+                elif size_gb:
+                    meta_parts.append(f"{size_gb} GB")
+                if meta_parts:
+                    label += f" ({' • '.join(meta_parts)})"
 
                 models.append(
                     {
@@ -234,24 +322,34 @@ async def get_ollama_models() -> Dict[str, Any]:
                         "label": label,
                         "parameter_size": param_size,
                         "size_gb": size_gb,
+                        "size_vram_gb": size_vram_gb,
                         "is_gemma": is_gemma,
                         "context_length": ctx_len,
+                        "expires_at": m.get("expires_at", ""),
+                        "loaded": True,
                     }
                 )
 
             models.sort(key=lambda x: (not x["is_gemma"], x["name"]))
-            return {"success": True, "models": models, "count": len(models)}
+            return {
+                "success": True,
+                "models": models,
+                "count": len(models),
+                "loaded_only": True,
+            }
         return {
             "success": False,
             "error": f"Ollama HTTP {res.status_code}",
             "models": [],
+            "loaded_only": True,
         }
     except Exception as exc:
-        logger.debug("Could not query Ollama /api/tags: %s", exc)
+        logger.debug("Could not query Ollama /api/ps: %s", exc)
         return {
             "success": False,
             "error": f"Could not connect to Ollama at {OLLAMA_HOST}: {str(exc)}",
             "models": [],
+            "loaded_only": True,
         }
 
 
@@ -431,6 +529,377 @@ async def _stream_summary_with_ollama(
         yield {"type": "error", "error": f"Local Ollama Unexpected Error: {str(exc)}"}
 
 
+async def get_unsloth_models(
+    api_key_override: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Retrieve currently loaded LLM/vision models from local Unsloth Studio `/v1/models`."""
+    url = f"{_unsloth_api_base()}/models"
+    resolved_key = _unsloth_resolve_api_key(api_key_override)
+    headers = _unsloth_headers(resolved_key)
+    client = get_llm_http_client()
+    try:
+        res = await client.get(url, headers=headers, timeout=10.0)
+        if res.status_code == 200:
+            data = res.json()
+            raw_models = data.get("data")
+            if not isinstance(raw_models, list):
+                raw_models = data.get("models") or []
+
+            models = []
+            non_llm_types = {
+                "embedding",
+                "embeddings",
+                "reranking",
+                "tts",
+                "asr",
+                "transcription",
+                "audio",
+            }
+            seen_names = set()
+
+            for m in raw_models:
+                if not isinstance(m, dict):
+                    continue
+                name = str(m.get("id") or m.get("model") or m.get("name") or "").strip()
+                if not name or name in seen_names:
+                    continue
+
+                status = m.get("status")
+                status_val = (
+                    str(status.get("value") or "").strip().lower()
+                    if isinstance(status, dict)
+                    else str(status or "").strip().lower()
+                )
+                if m.get("loaded") is False or status_val in ("unloaded", "not_loaded"):
+                    continue
+
+                model_type = str(m.get("type") or "").strip().lower()
+                if model_type in non_llm_types:
+                    continue
+
+                seen_names.add(name)
+                owned_by = str(m.get("owned_by") or "unsloth").strip()
+                ctx_len = int(
+                    m.get("context_length") or m.get("max_context_window") or 0
+                )
+                is_gemma = "gemma" in name.lower()
+                is_vision = model_type == "vision" or "gemma-4" in name.lower()
+
+                label = f"{name} ({owned_by})" if owned_by else name
+
+                models.append(
+                    {
+                        "name": name,
+                        "model": name,
+                        "label": label,
+                        "owned_by": owned_by,
+                        "is_gemma": is_gemma,
+                        "is_vision": is_vision,
+                        "context_length": ctx_len,
+                        "loaded": True,
+                    }
+                )
+
+            models.sort(key=lambda x: (not x["is_gemma"], x["name"].lower()))
+            return {
+                "success": True,
+                "models": models,
+                "count": len(models),
+                "host": UNSLOTH_HOST,
+                "loaded_only": True,
+            }
+        if res.status_code in (401, 403):
+            return {
+                "success": False,
+                "auth_required": True,
+                "error": (
+                    f"Unsloth authentication required (HTTP {res.status_code}). "
+                    "Set UNSLOTH_STUDIO_AUTH_TOKEN in .env and click Refresh."
+                ),
+                "models": [],
+                "host": UNSLOTH_HOST,
+                "loaded_only": True,
+            }
+        return {
+            "success": False,
+            "error": _scrub_secret(f"Unsloth HTTP {res.status_code}", resolved_key),
+            "models": [],
+            "host": UNSLOTH_HOST,
+            "loaded_only": True,
+        }
+    except Exception as exc:
+        logger.debug("Could not query Unsloth /v1/models: %s", exc)
+        return {
+            "success": False,
+            "error": _scrub_secret(
+                f"Could not connect to Unsloth Studio at {UNSLOTH_HOST}: {str(exc)}",
+                resolved_key,
+            ),
+            "models": [],
+            "host": UNSLOTH_HOST,
+            "loaded_only": True,
+        }
+
+
+def _build_unsloth_messages(
+    prompt: str, images_b64: Optional[List[str]] = None
+) -> List[Dict[str, Any]]:
+    """Format user prompt and optional base64 keyframes as OpenAI chat messages."""
+    if not images_b64:
+        return [{"role": "user", "content": prompt}]
+    content_items: List[Dict[str, Any]] = [
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+        }
+        for b64 in images_b64
+    ]
+    content_items.append({"type": "text", "text": prompt})
+    return [{"role": "user", "content": content_items}]
+
+
+def _extract_openai_message_text(message_obj: Dict[str, Any]) -> str:
+    """Extract plain text content from an OpenAI chat completion message dict."""
+    content = message_obj.get("content")
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                parts.append(str(item.get("text") or ""))
+        return "".join(parts).strip()
+    return ""
+
+
+async def generate_summary_with_unsloth(
+    prompt: str,
+    model_name: str = UNSLOTH_DEFAULT_MODEL,
+    images_b64: Optional[List[str]] = None,
+    api_key_override: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Call local Unsloth Studio `/v1/chat/completions` with error handling and vision fallback."""
+    raw_model = _strip_unsloth_prefix(model_name)
+    url = f"{_unsloth_api_base()}/chat/completions"
+    resolved_key = _unsloth_resolve_api_key(api_key_override)
+    headers = _unsloth_headers(resolved_key)
+    payload: Dict[str, Any] = {
+        "model": raw_model,
+        "messages": _build_unsloth_messages(prompt, images_b64),
+        "stream": False,
+    }
+
+    client = get_llm_http_client()
+    try:
+        res = await client.post(url, json=payload, headers=headers, timeout=180.0)
+
+        if res.status_code not in (200, 401, 403, 404) and images_b64:
+            payload["messages"] = _build_unsloth_messages(prompt, None)
+            res = await client.post(url, json=payload, headers=headers, timeout=180.0)
+
+        if res.status_code == 200:
+            data = res.json()
+            choices = data.get("choices") or []
+            response_text = (
+                _extract_openai_message_text(choices[0].get("message") or {})
+                if choices
+                else ""
+            )
+            if response_text:
+                return {
+                    "success": True,
+                    "summary": response_text,
+                    "model_used": f"Unsloth ({raw_model})",
+                }
+            return {
+                "success": False,
+                "error": (
+                    f"Local Unsloth Model Error: Model '{raw_model}' completed the request "
+                    "but returned an empty response."
+                ),
+            }
+        if res.status_code in (401, 403):
+            return {
+                "success": False,
+                "error": (
+                    f"Local Unsloth Authentication Error (HTTP {res.status_code}): "
+                    "Invalid or missing Unsloth Bearer token. Set UNSLOTH_STUDIO_AUTH_TOKEN in .env "
+                    "and click Refresh."
+                ),
+            }
+        if res.status_code == 404:
+            return {
+                "success": False,
+                "error": (
+                    f"Local Model Not Found: Model '{raw_model}' is not loaded in Unsloth Studio. "
+                    "Load the model in Unsloth Studio and click Refresh."
+                ),
+            }
+        return {
+            "success": False,
+            "error": _scrub_secret(
+                f"Local Unsloth Server Error (HTTP {res.status_code}): {res.text}",
+                resolved_key,
+            ),
+        }
+    except httpx.ConnectError:
+        return {
+            "success": False,
+            "error": (
+                f"Local Unsloth Connection Error: Could not connect to Unsloth Studio at {UNSLOTH_HOST}. "
+                "Please verify that Unsloth Studio is running on your machine (e.g. run 'unsloth studio')."
+            ),
+        }
+    except httpx.TimeoutException:
+        return {
+            "success": False,
+            "error": (
+                f"Local Unsloth Timeout: Model '{raw_model}' took longer than 180 seconds to respond. "
+                "The video transcript may be very long or your system resources may be constrained."
+            ),
+        }
+    except Exception as exc:
+        logger.warning("Unexpected Unsloth error: %s", _scrub_secret(str(exc), resolved_key))
+        return {
+            "success": False,
+            "error": _scrub_secret(f"Local Unsloth Unexpected Error: {str(exc)}", resolved_key),
+        }
+
+
+async def _stream_summary_with_unsloth(
+    prompt: str,
+    model_name: str = UNSLOTH_DEFAULT_MODEL,
+    images_b64: Optional[List[str]] = None,
+    api_key_override: Optional[str] = None,
+) -> AsyncIterator[Dict[str, Any]]:
+    """Stream tokens incrementally from local Unsloth Studio `/v1/chat/completions` SSE."""
+    raw_model = _strip_unsloth_prefix(model_name)
+    url = f"{_unsloth_api_base()}/chat/completions"
+    resolved_key = _unsloth_resolve_api_key(api_key_override)
+    headers = _unsloth_headers(resolved_key)
+    payload: Dict[str, Any] = {
+        "model": raw_model,
+        "messages": _build_unsloth_messages(prompt, images_b64),
+        "stream": True,
+    }
+
+    client = get_llm_http_client()
+    full_chunks: List[str] = []
+
+    try:
+        async with client.stream(
+            "POST", url, json=payload, headers=headers, timeout=180.0
+        ) as res:
+            if res.status_code in (401, 403):
+                yield {
+                    "type": "error",
+                    "error": (
+                        f"Local Unsloth Authentication Error (HTTP {res.status_code}): "
+                        "Invalid or missing Unsloth Bearer token. Set UNSLOTH_STUDIO_AUTH_TOKEN in .env "
+                        "and click Refresh."
+                    ),
+                }
+                return
+
+            if res.status_code == 404:
+                yield {
+                    "type": "error",
+                    "error": (
+                        f"Local Model Not Found: Model '{raw_model}' is not loaded in Unsloth Studio. "
+                        "Load the model in Unsloth Studio and click Refresh."
+                    ),
+                }
+                return
+
+            if res.status_code != 200 and images_b64:
+                fallback = await generate_summary_with_unsloth(
+                    prompt, raw_model, images_b64=None, api_key_override=resolved_key
+                )
+                if fallback.get("success"):
+                    yield {"type": "chunk", "delta": fallback["summary"]}
+                    yield {
+                        "type": "done_llm",
+                        "summary": fallback["summary"],
+                        "model_used": fallback["model_used"],
+                    }
+                else:
+                    yield {
+                        "type": "error",
+                        "error": fallback.get("error", "Unsloth error"),
+                    }
+                return
+
+            if res.status_code != 200:
+                body = (await res.aread()).decode("utf-8", errors="replace")
+                yield {
+                    "type": "error",
+                    "error": _scrub_secret(
+                        f"Local Unsloth Server Error (HTTP {res.status_code}): {body}",
+                        resolved_key,
+                    ),
+                }
+                return
+
+            async for line in res.aiter_lines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith(":"):
+                    continue
+                if not stripped.startswith("data:"):
+                    continue
+                data_str = stripped[5:].strip()
+                if data_str == "[DONE]":
+                    break
+                try:
+                    chunk_obj = json.loads(data_str)
+                except Exception:
+                    continue
+                choices = chunk_obj.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta") or {}
+                piece = delta.get("content")
+                if isinstance(piece, str) and piece:
+                    full_chunks.append(piece)
+                    yield {"type": "chunk", "delta": piece}
+
+        final_text = "".join(full_chunks).strip()
+        if final_text:
+            yield {
+                "type": "done_llm",
+                "summary": final_text,
+                "model_used": f"Unsloth ({raw_model})",
+            }
+        else:
+            yield {
+                "type": "error",
+                "error": (
+                    f"Local Unsloth Model Error: Model '{raw_model}' completed the request "
+                    "but returned an empty response."
+                ),
+            }
+    except httpx.ConnectError:
+        yield {
+            "type": "error",
+            "error": (
+                f"Local Unsloth Connection Error: Could not connect to Unsloth Studio at {UNSLOTH_HOST}. "
+                "Please verify that Unsloth Studio is running on your machine (e.g. run 'unsloth studio')."
+            ),
+        }
+    except httpx.TimeoutException:
+        yield {
+            "type": "error",
+            "error": (
+                f"Local Unsloth Timeout: Model '{raw_model}' took longer than 180 seconds to respond."
+            ),
+        }
+    except Exception as exc:
+        logger.warning("Unexpected Unsloth stream error: %s", _scrub_secret(str(exc), resolved_key))
+        yield {
+            "type": "error",
+            "error": _scrub_secret(f"Local Unsloth Unexpected Error: {str(exc)}", resolved_key),
+        }
+
+
 def _is_fatal_api_error(err_msg: str) -> bool:
     """Detect authentication, permission, quota, or DNS errors that should not trigger fallback retries."""
     if not err_msg:
@@ -583,7 +1052,7 @@ async def generate_summary_with_gemini(
     prompt: str,
     model_name: str,
     api_key_override: Optional[str] = None,
-    thinking_level: str = "high",
+    thinking_level: str = "medium",
     youtube_url: Optional[str] = None,
     images_b64: Optional[List[str]] = None,
     lang: str = "bi",
@@ -738,7 +1207,7 @@ async def _stream_summary_with_gemini(
     prompt: str,
     model_name: str,
     api_key_override: Optional[str] = None,
-    thinking_level: str = "high",
+    thinking_level: str = "medium",
     youtube_url: Optional[str] = None,
     images_b64: Optional[List[str]] = None,
     lang: str = "bi",
@@ -1035,7 +1504,6 @@ def _build_summary_prompt(
 
 {formatting_rules}"""
     return prompt, title, author, url
-    return prompt, title, author, url
 
 
 async def generate_youtube_summary(
@@ -1044,13 +1512,14 @@ async def generate_youtube_summary(
     model_choice: str = "gemma4",
     custom_context: Optional[str] = None,
     api_key_override: Optional[str] = None,
-    thinking_level: str = "high",
+    thinking_level: str = "medium",
     lang: str = "bi",
     song_mode: bool = False,
     video_frames: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Generate structured summary using local Ollama (Gemma 4) or Gemini API with top-level try/except.
+    Generate structured summary using local Ollama (Gemma 4), local Unsloth Studio (Gemma 4),
+    or Gemini API with top-level try/except.
     Adapts output language to user selection ('fr', 'en', or 'bi') and supports Song/Lyrics mode
     as well as multimodal visual video keyframes when no captions or spoken audio are present.
     """
@@ -1065,7 +1534,14 @@ async def generate_youtube_summary(
             video_frames=video_frames,
         )
 
-        if "gemma" in model_name.lower() or "ollama" in model_choice.lower():
+        if _is_unsloth_model(model_name) or "unsloth" in model_choice.lower():
+            result = await generate_summary_with_unsloth(
+                prompt,
+                model_name,
+                images_b64=video_frames,
+                api_key_override=api_key_override,
+            )
+        elif "gemma" in model_name.lower() or "ollama" in model_choice.lower():
             result = await generate_summary_with_ollama(
                 prompt, model_name, images_b64=video_frames
             )
@@ -1101,7 +1577,7 @@ async def stream_youtube_summary(
     model_choice: str = "gemma4",
     custom_context: Optional[str] = None,
     api_key_override: Optional[str] = None,
-    thinking_level: str = "high",
+    thinking_level: str = "medium",
     lang: str = "bi",
     song_mode: bool = False,
     video_frames: Optional[List[str]] = None,
@@ -1118,7 +1594,15 @@ async def stream_youtube_summary(
             video_frames=video_frames,
         )
 
-        if "gemma" in model_name.lower() or "ollama" in model_choice.lower():
+        if _is_unsloth_model(model_name) or "unsloth" in model_choice.lower():
+            async for event in _stream_summary_with_unsloth(
+                prompt,
+                model_name,
+                images_b64=video_frames,
+                api_key_override=api_key_override,
+            ):
+                yield event
+        elif "gemma" in model_name.lower() or "ollama" in model_choice.lower():
             async for event in _stream_summary_with_ollama(
                 prompt, model_name, images_b64=video_frames
             ):
