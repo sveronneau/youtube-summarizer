@@ -587,7 +587,7 @@ body {
 }
 
 .tag-ollama { background: #D1FAE5; color: #047857; }
-.tag-unsloth { background: #ECFEFF; color: #155E75; }
+.tag-lemonade { background: #FEF3C7; color: #B45309; }
 .tag-hydrogen { background: #CCFBF1; color: #0F766E; }
 .tag-neon { background: #FCE7F3; color: #BE185D; }
 .tag-pro { background: #F3E8FF; color: #7C3AED; }
@@ -715,18 +715,18 @@ body {
         font-weight: 700;
     }
 
-    .unsloth-select::picker-icon,
-    .unsloth-select option::checkmark {
-        color: #155E75;
+    .lemonade-select::picker-icon,
+    .lemonade-select option::checkmark {
+        color: #B45309;
     }
 
-    .unsloth-select option:hover {
-        background: #ECFEFF;
+    .lemonade-select option:hover {
+        background: #FFFBEB;
     }
 
-    .unsloth-select option:checked {
-        background: #CFFAFE;
-        color: #164E63;
+    .lemonade-select option:checked {
+        background: #FEF3C7;
+        color: #92400E;
     }
 }
 
@@ -737,43 +737,43 @@ body {
     color: #15803D;
 }
 
-/* Local Unsloth Studio Variant Box */
-.unsloth-variant-box {
-    background: #ECFEFF;
-    border-color: #67E8F9;
+/* Local Lemonade Server Variant Box */
+.lemonade-variant-box {
+    background: #FFFBEB;
+    border-color: #FCD34D;
 }
 
-.unsloth-variant-box .variant-label {
-    color: #155E75;
+.lemonade-variant-box .variant-label {
+    color: #92400E;
 }
 
-.icon-chip-unsloth {
-    color: #0891B2;
+.icon-chip-lemonade {
+    color: #D97706;
 }
 
-.btn-refresh-unsloth {
-    background: #CFFAFE;
-    border-color: #67E8F9;
-    color: #155E75;
+.btn-refresh-lemonade {
+    background: #FEF3C7;
+    border-color: #FCD34D;
+    color: #92400E;
 }
 
-.btn-refresh-unsloth:hover {
-    background: #A5F3FC;
-    color: #164E63;
+.btn-refresh-lemonade:hover {
+    background: #FDE68A;
+    color: #78350F;
 }
 
-.unsloth-select {
-    border-color: #67E8F9;
-    color: #164E63;
+.lemonade-select {
+    border-color: #FCD34D;
+    color: #78350F;
 }
 
-.unsloth-select:focus {
-    border-color: #0891B2;
-    box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.16);
+.lemonade-select:focus {
+    border-color: #D97706;
+    box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.16);
 }
 
-.unsloth-note {
-    color: #0E7490;
+.lemonade-note {
+    color: #B45309;
 }
 
 /* Textarea (auto-sizing progressive enhancement) */

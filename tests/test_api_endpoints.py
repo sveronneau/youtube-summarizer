@@ -78,11 +78,11 @@ async def run_endpoint_tests() -> None:
         assert 'value="hydrogen"' in res_index.text
         assert 'id="card-neon"' in res_index.text
         assert 'value="neon"' in res_index.text
-        assert 'id="card-unsloth"' in res_index.text
-        assert 'value="unsloth"' in res_index.text
-        assert 'id="card-lemonade"' not in res_index.text
+        assert 'id="card-lemonade"' in res_index.text
+        assert 'value="lemonade"' in res_index.text
+        assert 'id="card-unsloth"' not in res_index.text
         assert 'Ollama Gemma 4' not in res_index.text
-        assert 'Unsloth Gemma 4' not in res_index.text
+        assert 'Lemonade Gemma 4' not in res_index.text
         assert 'id="unsloth-api-key"' not in res_index.text
         assert 'data-i18n="tagArgon"' in res_index.text
         assert 'id="card-flash"' not in res_index.text
@@ -92,17 +92,18 @@ async def run_endpoint_tests() -> None:
         assert main_mod.SummarizeRequest(url="https://youtu.be/dQw4w9WgXcQ").thinking_level == "medium"
         print("✅ Index route & security headers verified.")
 
-        # 1b. /api/unsloth/models discovery endpoint
+        # 1b. /api/lemonade/models discovery endpoint
         with patch(
-            "app.main.get_unsloth_models",
+            "app.main.get_lemonade_models",
             return_value={
                 "success": True,
                 "models": [
                     {
-                        "name": "unsloth/gemma-4-12b-it-GGUF",
-                        "model": "unsloth/gemma-4-12b-it-GGUF",
-                        "label": "unsloth/gemma-4-12b-it-GGUF (unsloth)",
-                        "owned_by": "unsloth",
+                        "name": "Gemma-4-E4B-it-GGUF",
+                        "model": "Gemma-4-E4B-it-GGUF",
+                        "label": "Gemma-4-E4B-it-GGUF (llamacpp • gpu)",
+                        "recipe": "llamacpp",
+                        "device": "gpu",
                         "is_gemma": True,
                         "is_vision": True,
                         "context_length": 32768,
@@ -110,16 +111,16 @@ async def run_endpoint_tests() -> None:
                     }
                 ],
                 "count": 1,
-                "host": "http://127.0.0.1:8888",
+                "host": "http://127.0.0.1:13305",
                 "loaded_only": True,
             },
         ):
-            res_uns_models = await client.get("/api/unsloth/models")
-            assert res_uns_models.status_code == 200
-            uns_json = res_uns_models.json()
-            assert uns_json["success"] is True
-            assert uns_json["models"][0]["name"] == "unsloth/gemma-4-12b-it-GGUF"
-        print("✅ /api/unsloth/models discovery endpoint verified.")
+            res_lem_models = await client.get("/api/lemonade/models")
+            assert res_lem_models.status_code == 200
+            lem_json = res_lem_models.json()
+            assert lem_json["success"] is True
+            assert lem_json["models"][0]["name"] == "Gemma-4-E4B-it-GGUF"
+        print("✅ /api/lemonade/models discovery endpoint verified.")
 
         # 2. Strict /api/video-info validation
         bad_info = await client.post(
@@ -177,74 +178,74 @@ async def run_endpoint_tests() -> None:
             assert events[-1]["summary"] == "## Live Streamed Summary"
         print("✅ /api/summarize (JSON & NDJSON stream) verified.")
 
-        # 3b. Unsloth routing dispatch (must go to Unsloth, NOT Ollama)
-        async def _fake_unsloth_batch(
+        # 3b. Lemonade routing dispatch (must go to Lemonade, NOT Ollama)
+        async def _fake_lemonade_batch(
             prompt: str,
-            model_name: str = "unsloth/gemma-4-12b-it-GGUF",
+            model_name: str = "Gemma-4-E4B-it-GGUF",
             images_b64: Optional[List[str]] = None,
             api_key_override: Optional[str] = None,
         ) -> Dict[str, Any]:
             return {
                 "success": True,
-                "summary": f"## Unsloth Summary\nModel={model_name}",
-                "model_used": f"Unsloth ({model_name})",
+                "summary": f"## Lemonade Summary\nModel={model_name}",
+                "model_used": f"Lemonade ({model_name})",
             }
 
-        async def _fake_unsloth_stream(
+        async def _fake_lemonade_stream(
             prompt: str,
-            model_name: str = "unsloth/gemma-4-12b-it-GGUF",
+            model_name: str = "Gemma-4-E4B-it-GGUF",
             images_b64: Optional[List[str]] = None,
             api_key_override: Optional[str] = None,
         ) -> AsyncIterator[Dict[str, Any]]:
-            yield {"type": "chunk", "delta": "## Unsloth Live "}
+            yield {"type": "chunk", "delta": "## Lemonade Live "}
             yield {"type": "chunk", "delta": "Stream"}
             yield {
                 "type": "done_llm",
-                "summary": "## Unsloth Live Stream",
-                "model_used": f"Unsloth ({model_name})",
+                "summary": "## Lemonade Live Stream",
+                "model_used": f"Lemonade ({model_name})",
             }
 
         async def _fail_if_ollama(*_args: Any, **_kwargs: Any) -> Dict[str, Any]:
-            raise AssertionError("Unsloth request erroneously routed to Ollama!")
+            raise AssertionError("Lemonade request erroneously routed to Ollama!")
 
         with (
-            patch("app.llm_service.generate_summary_with_unsloth", new=_fake_unsloth_batch),
-            patch("app.llm_service._stream_summary_with_unsloth", new=_fake_unsloth_stream),
+            patch("app.llm_service.generate_summary_with_lemonade", new=_fake_lemonade_batch),
+            patch("app.llm_service._stream_summary_with_lemonade", new=_fake_lemonade_stream),
             patch("app.llm_service.generate_summary_with_ollama", new=_fail_if_ollama),
             patch(
                 "app.main.get_video_transcript",
                 return_value={
                     "success": True,
-                    "transcript_text": "Hello GDG Ottawa Unsloth workshop!",
+                    "transcript_text": "Hello GDG Ottawa Lemonade workshop!",
                     "language_name": "English",
                     "segment_count": 1,
                 },
             ),
         ):
-            res_uns_sum = await client.post(
+            res_lem_sum = await client.post(
                 "/api/summarize",
-                json={"url": "https://youtu.be/dQw4w9WgXcQ", "model": "unsloth:unsloth/gemma-4-12b-it-GGUF"},
+                json={"url": "https://youtu.be/dQw4w9WgXcQ", "model": "lemonade:Gemma-4-E4B-it-GGUF"},
             )
-            assert res_uns_sum.status_code == 200
-            uns_sum_body = res_uns_sum.json()
-            assert uns_sum_body["success"] is True
-            assert "Unsloth" in uns_sum_body["model_used"]
-            assert "unsloth/gemma-4-12b-it-GGUF" in uns_sum_body["model_used"]
+            assert res_lem_sum.status_code == 200
+            lem_sum_body = res_lem_sum.json()
+            assert lem_sum_body["success"] is True
+            assert "Lemonade" in lem_sum_body["model_used"]
+            assert "Gemma-4-E4B-it-GGUF" in lem_sum_body["model_used"]
 
-            res_uns_stream = await client.post(
+            res_lem_stream = await client.post(
                 "/api/summarize/stream",
-                json={"url": "https://youtu.be/dQw4w9WgXcQ", "model": "unsloth:unsloth/gemma-4-12b-it-GGUF"},
+                json={"url": "https://youtu.be/dQw4w9WgXcQ", "model": "lemonade:Gemma-4-E4B-it-GGUF"},
             )
-            assert res_uns_stream.status_code == 200
-            uns_events = [
+            assert res_lem_stream.status_code == 200
+            lem_events = [
                 json.loads(line)
-                for line in res_uns_stream.text.splitlines()
+                for line in res_lem_stream.text.splitlines()
                 if line.strip()
             ]
-            assert uns_events[-1]["type"] == "done"
-            assert uns_events[-1]["summary"] == "## Unsloth Live Stream"
-            assert "Unsloth" in uns_events[-1]["model_used"]
-        print("✅ Unsloth routing dispatch (batch & NDJSON stream) verified.")
+            assert lem_events[-1]["type"] == "done"
+            assert lem_events[-1]["summary"] == "## Lemonade Live Stream"
+            assert "Lemonade" in lem_events[-1]["model_used"]
+        print("✅ Lemonade routing dispatch (batch & NDJSON stream) verified.")
 
         # 4. /api/summarize-upload: unsupported extension, size limit, and silent MP4 visual fallback
         bad_ext = await client.post(
