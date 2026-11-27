@@ -3,9 +3,9 @@
 > **Cinq façons de bâtir un outil de synthèse YouTube avec Gemini et plus.**
 > **Five Ways to Build a Gemini-Powered YouTube Summarizer and More.**
 >
-> - **Conférence / Event :** `{ DevFest } Sherbrooke 2026` — 14 novembre 2026 / November 14, 2026
+> - **Conférence / Event :** `{ GDG } Ottawa 2026` — **GDG Ottawa · Learn, Build & Jingle** — 15 décembre 2026 / December 15, 2026 · En ligne / Online
 > - **Conférencier / Speaker :** Stacy Véronneau
-> - **Version :** Release 15 (`2026-11-13`)
+> - **Version :** Release 19 (`2026-11-27 10:15`)
 > - **Code (Façons 2 & 3 / Ways 2 & 3) :** [README.md](./README.md)
 > - **Architecture :** un diagramme par façon, sous les diapositives 10, 13, 15, 18 et 20 / one diagram per way, under slides 10, 13, 15, 18 and 20
 
@@ -16,9 +16,10 @@
 **Cinq façons de bâtir un outil de synthèse YouTube avec Gemini et plus.**
 *Five Ways to Build a Gemini-Powered YouTube Summarizer and More.*
 
-- **Date :** 14 novembre 2026 / November 14, 2026
+- **Date :** 15 décembre 2026 / December 15, 2026 · En ligne / Online
 - **Conférencier / Speaker :** Stacy Véronneau
-- **Présenté au / Presented at :** `{ DevFest } Sherbrooke 2026`
+- **Présenté au / Presented at :** `{ GDG } Ottawa 2026` · **Learn, Build & Jingle**
+- **Version :** Release 19 (`2026-11-27 10:15`)
 - **Mention d'IA :** Claude et Gemini ont été utilisés pour générer cette présentation.
 - **AI Disclosure:** Claude and Gemini were used to generate this presentation.
 
@@ -77,9 +78,17 @@
 
 ---
 
-## Slide 6 — Aperçu visuel / Visual Overview
+## Slide 6 — La famille Gemini 4 / The Gemini 4 family
 
-*(Diapositive graphique plein écran illustrant les cinq approches / Full-bleed visual overview graphic of the five ways.)*
+*Un modèle par tâche : vitesse · profondeur · prix* / *Pick one per task: speed · depth · price*
+
+| Modèle / Model | Identifiant / ID | Description (FR) | Description (EN) |
+|---|---|---|---|
+| **Hydrogen** | `gemini-4-hydrogen` | Rapide · tâches courantes | Fast · everyday tasks |
+| **Neon ✦ NEW** | `gemini-4-neon` | Quasi-Carbon, vitesse Hydrogen | Near-Carbon, at Hydrogen speed |
+| **Argon** | `gemini-4-argon` | Raisonnement · multimodal | Deep reasoning · multimodal |
+| **Carbon** | `gemini-4-carbon` | Frontière · problèmes durs | Frontier · hardest problems |
+| **Orchestrateur · Orchestrator** | — | Planifier et exécuter | Plan & Execute |
 
 ---
 
@@ -111,7 +120,7 @@
 
 ---
 
-## Slide 9 — Le codelab en 6 étapes / The codelab in 6 steps (`Ship@DevFest`)
+## Slide 9 — Le codelab en 6 étapes / The codelab in 6 steps (`Ship@GDG`)
 
 *Du projet vide à l'URL publique.* / *From empty project to public URL.*
 
@@ -129,7 +138,7 @@
 
 ---
 
-## Slide 10 — 1 · Tout dans Google Cloud / All-in on Google Cloud (`Ship@DevFest` · `DÉMO LIVE · LIVE DEMO`)
+## Slide 10 — 1 · Tout dans Google Cloud / All-in on Google Cloud (`Ship@GDG` · `DÉMO LIVE · LIVE DEMO`)
 
 *Le codelab, version terminée* / *The codelab, finished*
 
@@ -195,7 +204,7 @@ flowchart LR
 
 ---
 
-## Slide 12 — Le prompt, c'est le code / The prompt is the code (`Build@DevFest`)
+## Slide 12 — Le prompt, c'est le code / The prompt is the code (`Build@GDG`)
 
 *Ce que j'ai demandé à l'agent d'Antigravity (façons 2 et 3).* / *What I asked the Antigravity agent (ways 2 and 3).*
 
@@ -204,7 +213,7 @@ flowchart LR
 Bâtis une app web locale en Python (FastAPI) qui résume une vidéo.
 
 1. Deux entrées : un lien YouTube (récupère les sous-titres) OU un fichier MP4 (transcris l'audio sur la machine avec faster-whisper).
-2. Modèle au choix : Gemini 4 (Hydrogen, Argon ou Carbon) OU Gemma 4 en local via Ollama.
+2. Modèle au choix : Gemini 4 (Hydrogen, Argon ou Carbon) OU Gemma 4 en local via Ollama ou Lemonade.
 3. Sortie : sommaire exécutif, points clés, plus un champ « contexte » optionnel.
 4. Un bouton pour voir la transcription envoyée au modèle.
 5. La clé API ne figure jamais dans le code.
@@ -218,7 +227,7 @@ Avant de coder, montre-moi ton plan.
 Build a local Python web app (FastAPI) that summarizes a video.
 
 1. Two inputs: a YouTube link (fetch the captions) OR an MP4 file (transcribe the audio on this machine with faster-whisper).
-2. Pick the model: Gemini 4 (Hydrogen, Argon or Carbon) OR Gemma 4 running locally through Ollama.
+2. Pick the model: Gemini 4 (Hydrogen, Argon or Carbon) OR Gemma 4 running locally through Ollama or Lemonade.
 3. Output: executive summary, key points, plus an optional "context" field.
 4. A button to view the transcript sent to the model.
 5. The API key is never hardcoded.
@@ -232,16 +241,16 @@ Before you code, show me your plan.
 
 ---
 
-## Slide 13 — 2 · En local + API Gemini / Local + Gemini API (`Build@DevFest` · `Wi-Fi ON` · `DÉMO LIVE · LIVE DEMO`)
+## Slide 13 — 2 · En local + API Gemini / Local + Gemini API (`Build@GDG` · `Wi-Fi ON` · `DÉMO LIVE · LIVE DEMO`)
 
 *Code dans Antigravity, modèle chez Google* / *Code in Antigravity, model at Google*
 
-**Pipeline :** `YouTube · clip.mp4 (URL ou fichier · URL or file)` → `Transcription (CC → Whisper → images)` → `Gemini API (Hydrogen · Argon · Carbon)` → `Résumé · Summary (portable · laptop)`
+**Pipeline :** `YouTube · clip.mp4 (URL ou fichier · URL or file)` → `Transcription (CC → Whisper → images)` → `Gemini API (Hydrogen · Neon · Argon · Carbon)` → `Résumé · Summary (portable · laptop)`
 
 | Volet | Français | English |
 |---|---|---|
 | **EN BREF / THE PITCH** | Code local, modèle dans le cloud. Lien YouTube ou fichier local : l'app en tire une transcription pour Gemini. | Local code, model in the cloud. YouTube link or local file: the app turns it into a transcript for Gemini. |
-| **IDÉAL POUR / GREAT FOR** | Itérer et déboguer en local avec la puissance de Gemini. Hydrogen, Argon ou Carbon d'un clic (Argon, Carbon : clé payante). | Iterating and debugging locally with Gemini's horsepower. Hydrogen, Argon or Carbon in one click (Argon, Carbon: paid key). |
+| **IDÉAL POUR / GREAT FOR** | Itérer et déboguer en local avec la puissance de Gemini. Hydrogen, Neon, Argon ou Carbon d'un clic (Neon, Argon, Carbon : clé payante). | Iterating and debugging locally with Gemini's horsepower. Hydrogen, Neon, Argon or Carbon in one click (Neon, Argon, Carbon: paid key). |
 | **LE HIC / THE CATCH** | La transcription part chez Google et chaque requête coûte des jetons. Gemini lit le texte; l'écran, seulement si la vidéo est muette. | The transcript goes to Google, and every request costs tokens. Gemini reads the text; the screen only if the video is silent. |
 
 ```bash
@@ -266,7 +275,7 @@ flowchart LR
     YT["YouTube<br/>titre · sous-titres · audio<br/>title · captions · audio"]
   end
   subgraph G["Google"]
-    GA["Gemini API<br/>Gemini 4 Hydrogen · Argon · Carbon"]
+    GA["Gemini API<br/>Gemini 4 Hydrogen · Neon · Argon · Carbon"]
   end
   MP4 --> UI
   UI -->|"1"| YS
@@ -305,7 +314,7 @@ flowchart LR
 
 ---
 
-## Slide 15 — 3 · En local + Gemma 4 / Local + Gemma 4 (`Build@DevFest` · `Wi-Fi OFF` · `DÉMO LIVE · LIVE DEMO`)
+## Slide 15 — 3 · En local + Gemma 4 / Local + Gemma 4 (`Build@GDG` · `Hors ligne · Offline` · `DÉMO LIVE · LIVE DEMO`)
 
 *Le modèle roule sur votre portable* / *The model runs on your laptop*
 
@@ -314,19 +323,20 @@ flowchart LR
 | Volet | Français | English |
 |---|---|---|
 | **EN BREF / THE PITCH** | Même app, onglet Upload : `faster-whisper` transcrit l'audio, Gemma 4 résume via Ollama. Rien ne sort du portable. | Same app, Upload tab: `faster-whisper` transcribes the audio, Gemma 4 summarizes via Ollama. Nothing leaves the laptop. |
-| **IDÉAL POUR / GREAT FOR** | La confidentialité, zéro coût par requête, et la démo qui marche quand le Wi-Fi du campus lâche. | Privacy, zero cost per request, and the demo that still works when the campus Wi-Fi dies. |
+| **IDÉAL POUR / GREAT FOR** | La confidentialité, zéro coût par requête, et la démo qui marche quand le Wi-Fi lâche. | Privacy, zero cost per request, and the demo that still works when the Wi-Fi dies. |
 | **LE HIC / THE CATCH** | Il faut le fichier, pas un lien. Gemma lit la transcription; l'écran, seulement si la vidéo est muette. Plus lent : ici, MacBook Pro M2. Comptez 16 Go de RAM, ~10 Go de disque. | You need the file, not a link. Gemma reads the transcript; the screen only if the video is silent. Slower: this is a MacBook Pro M2. Plan for 16 GB RAM, ~10 GB disk. |
 
 ```bash
-ollama pull gemma4
-pip install -r requirements.txt
+ollama pull gemma4  ·  pip install -r requirements.txt
 ```
 
 ### 🧭 Architecture *(hors diapositive / not on the slide)*
 
+> *Note d'implémentation / Repo implementation note:* L'application prend en charge les modèles chargés en mémoire sur **Ollama** (`127.0.0.1:11434`, `/api/ps`) et **Lemonade Server** (`127.0.0.1:13305`, `/api/v1/health`). / *The app supports loaded-only models on both **Ollama** (`127.0.0.1:11434`, `/api/ps`) and **Lemonade Server** (`127.0.0.1:13305`, `/api/v1/health`).*
+
 ```mermaid
 flowchart LR
-  subgraph LAP["Portable · Laptop — Wi-Fi OFF"]
+  subgraph LAP["Portable · Laptop — Hors ligne · Offline"]
     UI["Navigateur · Browser<br/>HTML + JS · localhost:8000"]
     MP4["clip.mp4<br/>fichier local · local file"]
     subgraph API["FastAPI + uvicorn"]
@@ -334,9 +344,10 @@ flowchart LR
       TS["transcription_service<br/>faster-whisper (cache) · CPU"]
       LS["llm_service<br/>prompt · httpx"]
     end
-    subgraph OL["Ollama"]
-      OS["Ollama<br/>127.0.0.1:11434 · /api/generate"]
-      GM["Gemma 4<br/>gemma4:latest · gemma4:12b"]
+    subgraph LOC["Runtimes locaux · Local Runtimes (loaded-only)"]
+      OS["Ollama<br/>127.0.0.1:11434 · /api/ps + /api/generate"]
+      LM["Lemonade Server<br/>127.0.0.1:13305 · /api/v1/health + /chat/completions"]
+      GM["Modèle local · Local Model<br/>ex. Gemma 4"]
     end
   end
   subgraph NET["Internet — hors ligne · offline"]
@@ -347,17 +358,19 @@ flowchart LR
   TMP -->|"2"| TS
   TS -->|"3"| LS
   LS -->|"4"| OS
+  LS -->|"4"| LM
   OS -->|"5"| GM
+  LM -->|"5"| GM
   GM -->|"6"| LS
   LS -->|"7"| UI
   LS -. "✕" .-x X
-  class UI,MP4,TMP,TS,LS,OS,GM box;
+  class UI,MP4,TMP,TS,LS,OS,LM,GM box;
   class X off;
   classDef box fill:#FFFFFF,stroke:#1E1E1E,stroke-width:1.5px,color:#1E1E1E;
   classDef off fill:#F8F9FA,stroke:#9AA0A6,stroke-dasharray:4 3,color:#9AA0A6;
   style LAP fill:#FEF7E0,stroke:#1E1E1E,color:#1E1E1E
   style API fill:#FFFFFF,stroke:#1E1E1E,color:#1E1E1E
-  style OL fill:#FFFFFF,stroke:#1E1E1E,color:#1E1E1E
+  style LOC fill:#FFFFFF,stroke:#1E1E1E,color:#1E1E1E
   style NET fill:#F8F9FA,stroke:#9AA0A6,stroke-dasharray:4 3,color:#5F6368
 ```
 
@@ -366,8 +379,8 @@ flowchart LR
 | **1** | Le fichier part vers l'app (`/api/summarize-upload/stream`). | The file goes to the app (`/api/summarize-upload/stream`). |
 | **2** | Il est sauvegardé le temps du traitement. | It is saved for the duration of the job. |
 | **3** | Whisper transcrit sur le portable (images clés si muet), puis le prompt. | Whisper transcribes on the laptop (keyframes if silent), then the prompt. |
-| **4** | Appel HTTP local à Ollama. | Local HTTP call to Ollama. |
-| **5** | Gemma 4 génère le résumé. | Gemma 4 generates the summary. |
+| **4** | Appel HTTP local à Ollama ou Lemonade Server. | Local HTTP call to Ollama or Lemonade Server. |
+| **5** | Le modèle local chargé génère le résumé. | The loaded local model generates the summary. |
 | **6** | Les mots reviennent en streaming. | The words stream back. |
 | **7** | Le navigateur affiche le résumé; le fichier temporaire est supprimé. | The browser renders the summary; the temp file is deleted. |
 
@@ -380,7 +393,7 @@ flowchart LR
 
 ---
 
-## Slide 17 — Un prompt, une app / One prompt, one app (`Prompt@DevFest`)
+## Slide 17 — Un prompt, une app / One prompt, one app (`Prompt@GDG`)
 
 *Ce que j'ai demandé à AI Studio Build (façon 4).* / *What I asked AI Studio Build (way 4).*
 
@@ -394,7 +407,7 @@ flowchart LR
 
 ---
 
-## Slide 18 — 4 · SaaS à fond. Let's go! / Full SaaS. Let's go! (`Prompt@DevFest · Ship@DevFest` · `DÉMO LIVE · LIVE DEMO`)
+## Slide 18 — 4 · SaaS à fond. Let's go! / Full SaaS. Let's go! (`Prompt@GDG · Ship@GDG` · `DÉMO LIVE · LIVE DEMO`)
 
 *AI Studio Build : un prompt, une app, une URL* / *AI Studio Build: one prompt, one app, one URL*
 
@@ -458,7 +471,7 @@ flowchart LR
 
 ---
 
-## Slide 20 — 5 · Pourquoi coder, au fond? / Why build it at all? (`Prompt@DevFest` · `DÉMO LIVE · LIVE DEMO`)
+## Slide 20 — 5 · Pourquoi coder, au fond? / Why build it at all? (`Prompt@GDG` · `DÉMO LIVE · LIVE DEMO`)
 
 *Gemini Notebook (anciennement NotebookLM)* / *Gemini Notebook (formerly NotebookLM)*
 
@@ -543,7 +556,7 @@ flowchart LR
 | # | Approche / Way | Interface · UI | App | Entrée · Input | Modèle · Model | Appel · Call | Hébergé · Hosted |
 |---|---|---|---|---|---|---|---|
 | **1** | Google Cloud | Formulaire · Form | Flask | URL YouTube | `gemini-4-hydrogen` | `google-genai` | Cloud Run |
-| **2** | Antigravity + API | HTML + JS | FastAPI | CC → Whisper → images | Hydrogen · Argon · Carbon | `google-genai` | `localhost:8000` |
+| **2** | Antigravity + API | HTML + JS | FastAPI | CC → Whisper → images | Hydrogen · Neon · Argon · Carbon | `google-genai` | `localhost:8000` |
 | **3** | Antigravity + Gemma 4 | HTML + JS | FastAPI | MP4 → Whisper | `gemma4` | `Ollama :11434` | Portable · Laptop |
 | **4** | AI Studio | Générée · Generated | Généré · Generated | URL YouTube | `gemini-4-hydrogen` | Gemini API | Cloud Run |
 | **5** | Gemini Notebook | `notebook.google` | — | Source YouTube | Gemini | — | SaaS Google |
@@ -590,31 +603,18 @@ flowchart LR
 *Ce qui s'en vient, et quoi bâtir ensuite.* / *What's coming, and what to build next.*
 
 1. **Les modèles vont regarder ET lire / Models will watch AND read**
-   - **FR :** Gemini 4 Argon peut parcourir la vidéo et demander lui-même la transcription, des images ou l'audio.
-   - **EN :** Gemini 4 Argon can move through the video and ask for the transcript, frames, or audio on its own.
+   - **FR :** Gemini 4 peut parcourir la vidéo et demander lui-même la transcription, des images ou l'audio.
+   - **EN :** Gemini 4 can move through the video and ask for the transcript, frames, or audio on its own.
 2. **1 000 vidéos, pas une / 1,000 videos, not one**
    - **FR :** Une playlist, une session de cours au complet, en lot : même app, autre échelle.
    - **EN :** A playlist, a whole semester of lectures, in batch: same app, different scale.
 3. **Posez des questions à vos vidéos / Ask your videos questions**
-   - **FR :** Du résumé au RAG multimodal, avec citations. La suite plus tard aujourd'hui!
-   - **EN :** From summaries to multimodal RAG, with citations. More on that later today!
+   - **FR :** Du résumé au RAG multimodal, avec citations. Votre prochain projet de fin de semaine.
+   - **EN :** From summaries to multimodal RAG, with citations. Your next weekend project.
 
 ---
 
-## Slide 26 — ALORS… ON A FAIT QUOI? / SO… WHAT DID WE DO?
-
-- **FR :** Cinq façons, en 40 secondes.
-- **EN :** Five ways, in 40 seconds.
-
----
-
-## Slide 27 — Récapitulatif vidéo (40 s) / 40-Second Video Recap
-
-*(Vidéo récapitulative muette de 40 secondes présentant les cinq façons / 40-second muted recap video of all five ways.)*
-
----
-
-## Slide 28 — Merci! / Thank you!
+## Slide 26 — Merci! / Thank you!
 
 *Résumez de façon responsable. Et faites le ménage dans votre Cloud Run.*
 *Go summarize responsibly. And clean up your Cloud Run!*
@@ -628,5 +628,5 @@ flowchart LR
 | **Gemini Notebook** | <https://notebook.google> |
 | **Code · GitHub** | <https://github.com/sveronneau/youtube-summarizer> |
 
-**Merci au GDG Cloud Sherbrooke! / Thanks, GDG Cloud Sherbrooke!**
+**Merci au GDG Ottawa! / Thanks, GDG Ottawa! ❄️**
 *Stacy Véronneau — TELUS Digital · GDE (Cloud) · Org., GDG Cloud Montréal · President, GDG Montréal · Mentor GDG (Est du Canada · Eastern Canada)*
