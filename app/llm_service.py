@@ -1,4 +1,4 @@
-"""LLM orchestration service supporting local Ollama, local Unsloth Studio, and Google Gemini APIs (batch & streaming)."""
+"""LLM orchestration service supporting local Ollama, local Lemonade Server, and Google Gemini APIs (batch & streaming)."""
 
 import asyncio
 import base64
@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
-UNSLOTH_HOST = os.getenv("UNSLOTH_HOST", "http://127.0.0.1:8888")
-UNSLOTH_DEFAULT_MODEL = os.getenv("UNSLOTH_DEFAULT_MODEL", "unsloth/gemma-4-12b-it-GGUF")
+LEMONADE_HOST = os.getenv("LEMONADE_HOST", "http://127.0.0.1:13305")
+LEMONADE_DEFAULT_MODEL = os.getenv("LEMONADE_DEFAULT_MODEL", "Gemma-4-E4B-it-GGUF")
 MAX_TRANSCRIPT_CHARS = int(os.getenv("MAX_TRANSCRIPT_CHARS", "120000"))
 
 MODEL_MAPPING = {
@@ -29,8 +29,8 @@ MODEL_MAPPING = {
     "gemma4:latest": "gemma4:latest",
     "gemma": "gemma4:latest",
     "ollama": "gemma4:latest",
-    "unsloth": f"unsloth:{UNSLOTH_DEFAULT_MODEL}",
-    "unsloth-gemma4": f"unsloth:{UNSLOTH_DEFAULT_MODEL}",
+    "lemonade": f"lemonade:{LEMONADE_DEFAULT_MODEL}",
+    "lemonade-gemma4": f"lemonade:{LEMONADE_DEFAULT_MODEL}",
     "flash": "gemini-3.8-flash",
     "hydrogen": "gemini-4-hydrogen",
     "gemini-hydrogen": "gemini-4-hydrogen",
@@ -94,21 +94,21 @@ def _scrub_secret(msg: str, secret: Optional[str]) -> str:
     return msg
 
 
-def _unsloth_api_base() -> str:
-    """Return the normalized OpenAI-compatible Unsloth Studio API base URL."""
-    base = UNSLOTH_HOST.rstrip("/")
-    if base.endswith("/v1") or base.endswith("/api/v1"):
+def _lemonade_api_base() -> str:
+    """Return the normalized OpenAI-compatible Lemonade Server API base URL."""
+    base = LEMONADE_HOST.rstrip("/")
+    if base.endswith("/api/v1") or base.endswith("/v1"):
         return base
-    return f"{base}/v1"
+    return f"{base}/api/v1"
 
 
-def _unsloth_resolve_api_key(api_key_override: Optional[str] = None) -> str:
-    """Resolve Unsloth Bearer token from override, env vars, or live .env file."""
+def _lemonade_resolve_api_key(api_key_override: Optional[str] = None) -> str:
+    """Resolve optional Lemonade Bearer token from override, env vars, or live .env file."""
     override = (api_key_override or "").strip()
     if override:
         return override
 
-    env_token = (os.getenv("UNSLOTH_STUDIO_AUTH_TOKEN") or "").strip()
+    env_token = (os.getenv("LEMONADE_API_KEY") or "").strip()
     if env_token:
         return env_token
 
@@ -119,38 +119,31 @@ def _unsloth_resolve_api_key(api_key_override: Optional[str] = None) -> str:
         except Exception as exc:
             logger.debug("Could not read %s: %s", _ENV_FILE, exc)
 
-    file_token = (file_values.get("UNSLOTH_STUDIO_AUTH_TOKEN") or "").strip()
-    if file_token:
-        return file_token
-
-    return (
-        (os.getenv("UNSLOTH_API_KEY") or "").strip()
-        or (file_values.get("UNSLOTH_API_KEY") or "").strip()
-    )
+    return (file_values.get("LEMONADE_API_KEY") or "").strip()
 
 
-def _unsloth_headers(api_key_override: Optional[str] = None) -> Dict[str, str]:
-    """Return Authorization header when an Unsloth Studio token is available."""
-    api_key = _unsloth_resolve_api_key(api_key_override)
+def _lemonade_headers(api_key_override: Optional[str] = None) -> Dict[str, str]:
+    """Return Authorization header when a Lemonade API key is configured."""
+    api_key = _lemonade_resolve_api_key(api_key_override)
     if api_key:
         return {"Authorization": f"Bearer {api_key}"}
     return {}
 
 
-def _is_unsloth_model(model_name: str) -> bool:
-    """Return True if the resolved or requested model targets Unsloth Studio."""
+def _is_lemonade_model(model_name: str) -> bool:
+    """Return True if the resolved or requested model targets Lemonade Server."""
     low = (model_name or "").strip().lower()
-    return low == "unsloth" or low.startswith("unsloth:")
+    return low == "lemonade" or low.startswith("lemonade:")
 
 
-def _strip_unsloth_prefix(model_name: str) -> str:
-    """Extract the underlying Unsloth model ID from an `unsloth:<id>` specifier."""
+def _strip_lemonade_prefix(model_name: str) -> str:
+    """Extract the underlying Lemonade model ID from a `lemonade:<id>` specifier."""
     raw = (model_name or "").strip()
-    if raw.lower().startswith("unsloth:"):
+    if raw.lower().startswith("lemonade:"):
         raw = raw.split(":", 1)[1].strip()
-    elif raw.lower() == "unsloth":
+    elif raw.lower() == "lemonade":
         raw = ""
-    return raw or UNSLOTH_DEFAULT_MODEL
+    return raw or LEMONADE_DEFAULT_MODEL
 
 
 def resolve_model_name(requested_model: str) -> str:
@@ -158,16 +151,16 @@ def resolve_model_name(requested_model: str) -> str:
     if not requested_model:
         return "gemma4:latest"
     stripped = requested_model.strip()
-    if stripped.lower().startswith("unsloth:"):
-        raw_id = stripped.split(":", 1)[1].strip() or UNSLOTH_DEFAULT_MODEL
-        return f"unsloth:{raw_id}"
+    if stripped.lower().startswith("lemonade:"):
+        raw_id = stripped.split(":", 1)[1].strip() or LEMONADE_DEFAULT_MODEL
+        return f"lemonade:{raw_id}"
     if ":" in stripped:
         return stripped
     req_lower = stripped.lower()
     if req_lower in MODEL_MAPPING:
         return MODEL_MAPPING[req_lower]
-    if "unsloth" in req_lower:
-        return f"unsloth:{UNSLOTH_DEFAULT_MODEL}"
+    if "lemonade" in req_lower:
+        return f"lemonade:{LEMONADE_DEFAULT_MODEL}"
     if "gemma" in req_lower or "ollama" in req_lower:
         return "gemma4:latest"
     if "carbon" in req_lower:
@@ -529,21 +522,26 @@ async def _stream_summary_with_ollama(
         yield {"type": "error", "error": f"Local Ollama Unexpected Error: {str(exc)}"}
 
 
-async def get_unsloth_models(
+async def get_lemonade_models(
     api_key_override: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Retrieve currently loaded LLM/vision models from local Unsloth Studio `/v1/models`."""
-    url = f"{_unsloth_api_base()}/models"
-    resolved_key = _unsloth_resolve_api_key(api_key_override)
-    headers = _unsloth_headers(resolved_key)
+    """Retrieve currently loaded LLM/vision models from local Lemonade Server `/api/v1/health`."""
+    url = f"{_lemonade_api_base()}/health"
+    resolved_key = _lemonade_resolve_api_key(api_key_override)
+    headers = _lemonade_headers(resolved_key)
     client = get_llm_http_client()
     try:
         res = await client.get(url, headers=headers, timeout=10.0)
         if res.status_code == 200:
             data = res.json()
-            raw_models = data.get("data")
-            if not isinstance(raw_models, list):
-                raw_models = data.get("models") or []
+            raw_loaded = data.get("all_models_loaded")
+            if not isinstance(raw_loaded, list) or len(raw_loaded) == 0:
+                fallback_name = str(data.get("model_loaded") or "").strip()
+                raw_loaded = (
+                    [{"model_name": fallback_name, "type": "llm"}]
+                    if fallback_name
+                    else []
+                )
 
             models = []
             non_llm_types = {
@@ -554,23 +552,16 @@ async def get_unsloth_models(
                 "asr",
                 "transcription",
                 "audio",
+                "classification",
+                "image",
             }
             seen_names = set()
 
-            for m in raw_models:
+            for m in raw_loaded:
                 if not isinstance(m, dict):
                     continue
-                name = str(m.get("id") or m.get("model") or m.get("name") or "").strip()
+                name = str(m.get("model_name") or m.get("id") or m.get("name") or "").strip()
                 if not name or name in seen_names:
-                    continue
-
-                status = m.get("status")
-                status_val = (
-                    str(status.get("value") or "").strip().lower()
-                    if isinstance(status, dict)
-                    else str(status or "").strip().lower()
-                )
-                if m.get("loaded") is False or status_val in ("unloaded", "not_loaded"):
                     continue
 
                 model_type = str(m.get("type") or "").strip().lower()
@@ -578,21 +569,41 @@ async def get_unsloth_models(
                     continue
 
                 seen_names.add(name)
-                owned_by = str(m.get("owned_by") or "unsloth").strip()
+                recipe = str(m.get("recipe") or "").strip()
+                device = str(m.get("device") or "").strip()
+                recipe_opts = m.get("recipe_options") or {}
+                if not isinstance(recipe_opts, dict):
+                    recipe_opts = {}
                 ctx_len = int(
-                    m.get("context_length") or m.get("max_context_window") or 0
+                    recipe_opts.get("ctx_size")
+                    or m.get("context_length")
+                    or m.get("max_context_window")
+                    or 0
                 )
-                is_gemma = "gemma" in name.lower()
-                is_vision = model_type == "vision" or "gemma-4" in name.lower()
+                raw_size = m.get("size") or m.get("size_gb") or 0
+                try:
+                    size_val = float(raw_size)
+                except (TypeError, ValueError):
+                    size_val = 0.0
+                if size_val > 1024 * 1024:
+                    size_gb = round(size_val / (1024 ** 3), 1)
+                else:
+                    size_gb = round(size_val, 1) if size_val > 0 else 0
 
-                label = f"{name} ({owned_by})" if owned_by else name
+                is_gemma = "gemma" in name.lower()
+                is_vision = model_type == "vision" or "gemma-4" in name.lower() or "vl" in name.lower()
+
+                meta_parts = [p for p in (recipe, device) if p]
+                label = f"{name} ({' • '.join(meta_parts)})" if meta_parts else name
 
                 models.append(
                     {
                         "name": name,
                         "model": name,
                         "label": label,
-                        "owned_by": owned_by,
+                        "recipe": recipe,
+                        "device": device,
+                        "size_gb": size_gb,
                         "is_gemma": is_gemma,
                         "is_vision": is_vision,
                         "context_length": ctx_len,
@@ -605,43 +616,42 @@ async def get_unsloth_models(
                 "success": True,
                 "models": models,
                 "count": len(models),
-                "host": UNSLOTH_HOST,
+                "host": LEMONADE_HOST,
                 "loaded_only": True,
             }
         if res.status_code in (401, 403):
             return {
                 "success": False,
-                "auth_required": True,
                 "error": (
-                    f"Unsloth authentication required (HTTP {res.status_code}). "
-                    "Set UNSLOTH_STUDIO_AUTH_TOKEN in .env and click Refresh."
+                    f"Lemonade authentication required (HTTP {res.status_code}). "
+                    "Set LEMONADE_API_KEY in .env and click Refresh."
                 ),
                 "models": [],
-                "host": UNSLOTH_HOST,
+                "host": LEMONADE_HOST,
                 "loaded_only": True,
             }
         return {
             "success": False,
-            "error": _scrub_secret(f"Unsloth HTTP {res.status_code}", resolved_key),
+            "error": _scrub_secret(f"Lemonade HTTP {res.status_code}", resolved_key),
             "models": [],
-            "host": UNSLOTH_HOST,
+            "host": LEMONADE_HOST,
             "loaded_only": True,
         }
     except Exception as exc:
-        logger.debug("Could not query Unsloth /v1/models: %s", exc)
+        logger.debug("Could not query Lemonade /api/v1/health: %s", exc)
         return {
             "success": False,
             "error": _scrub_secret(
-                f"Could not connect to Unsloth Studio at {UNSLOTH_HOST}: {str(exc)}",
+                f"Could not connect to Lemonade Server at {LEMONADE_HOST}: {str(exc)}",
                 resolved_key,
             ),
             "models": [],
-            "host": UNSLOTH_HOST,
+            "host": LEMONADE_HOST,
             "loaded_only": True,
         }
 
 
-def _build_unsloth_messages(
+def _build_lemonade_messages(
     prompt: str, images_b64: Optional[List[str]] = None
 ) -> List[Dict[str, Any]]:
     """Format user prompt and optional base64 keyframes as OpenAI chat messages."""
@@ -672,20 +682,20 @@ def _extract_openai_message_text(message_obj: Dict[str, Any]) -> str:
     return ""
 
 
-async def generate_summary_with_unsloth(
+async def generate_summary_with_lemonade(
     prompt: str,
-    model_name: str = UNSLOTH_DEFAULT_MODEL,
+    model_name: str = LEMONADE_DEFAULT_MODEL,
     images_b64: Optional[List[str]] = None,
     api_key_override: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Call local Unsloth Studio `/v1/chat/completions` with error handling and vision fallback."""
-    raw_model = _strip_unsloth_prefix(model_name)
-    url = f"{_unsloth_api_base()}/chat/completions"
-    resolved_key = _unsloth_resolve_api_key(api_key_override)
-    headers = _unsloth_headers(resolved_key)
+    """Call local Lemonade Server `/api/v1/chat/completions` with error handling and vision fallback."""
+    raw_model = _strip_lemonade_prefix(model_name)
+    url = f"{_lemonade_api_base()}/chat/completions"
+    resolved_key = _lemonade_resolve_api_key(api_key_override)
+    headers = _lemonade_headers(resolved_key)
     payload: Dict[str, Any] = {
         "model": raw_model,
-        "messages": _build_unsloth_messages(prompt, images_b64),
+        "messages": _build_lemonade_messages(prompt, images_b64),
         "stream": False,
     }
 
@@ -694,7 +704,7 @@ async def generate_summary_with_unsloth(
         res = await client.post(url, json=payload, headers=headers, timeout=180.0)
 
         if res.status_code not in (200, 401, 403, 404) and images_b64:
-            payload["messages"] = _build_unsloth_messages(prompt, None)
+            payload["messages"] = _build_lemonade_messages(prompt, None)
             res = await client.post(url, json=payload, headers=headers, timeout=180.0)
 
         if res.status_code == 200:
@@ -709,12 +719,12 @@ async def generate_summary_with_unsloth(
                 return {
                     "success": True,
                     "summary": response_text,
-                    "model_used": f"Unsloth ({raw_model})",
+                    "model_used": f"Lemonade ({raw_model})",
                 }
             return {
                 "success": False,
                 "error": (
-                    f"Local Unsloth Model Error: Model '{raw_model}' completed the request "
+                    f"Local Lemonade Model Error: Model '{raw_model}' completed the request "
                     "but returned an empty response."
                 ),
             }
@@ -722,8 +732,8 @@ async def generate_summary_with_unsloth(
             return {
                 "success": False,
                 "error": (
-                    f"Local Unsloth Authentication Error (HTTP {res.status_code}): "
-                    "Invalid or missing Unsloth Bearer token. Set UNSLOTH_STUDIO_AUTH_TOKEN in .env "
+                    f"Local Lemonade Authentication Error (HTTP {res.status_code}): "
+                    "Invalid or missing Lemonade API key. Set LEMONADE_API_KEY in .env "
                     "and click Refresh."
                 ),
             }
@@ -731,14 +741,14 @@ async def generate_summary_with_unsloth(
             return {
                 "success": False,
                 "error": (
-                    f"Local Model Not Found: Model '{raw_model}' is not loaded in Unsloth Studio. "
-                    "Load the model in Unsloth Studio and click Refresh."
+                    f"Local Model Not Found: Model '{raw_model}' is not loaded in Lemonade Server. "
+                    "Load the model in Lemonade Server and click Refresh."
                 ),
             }
         return {
             "success": False,
             "error": _scrub_secret(
-                f"Local Unsloth Server Error (HTTP {res.status_code}): {res.text}",
+                f"Local Lemonade Server Error (HTTP {res.status_code}): {res.text}",
                 resolved_key,
             ),
         }
@@ -746,40 +756,40 @@ async def generate_summary_with_unsloth(
         return {
             "success": False,
             "error": (
-                f"Local Unsloth Connection Error: Could not connect to Unsloth Studio at {UNSLOTH_HOST}. "
-                "Please verify that Unsloth Studio is running on your machine (e.g. run 'unsloth studio')."
+                f"Local Lemonade Connection Error: Could not connect to Lemonade Server at {LEMONADE_HOST}. "
+                "Please verify that Lemonade Server is running on your machine (e.g. run 'lemonade-server serve')."
             ),
         }
     except httpx.TimeoutException:
         return {
             "success": False,
             "error": (
-                f"Local Unsloth Timeout: Model '{raw_model}' took longer than 180 seconds to respond. "
+                f"Local Lemonade Timeout: Model '{raw_model}' took longer than 180 seconds to respond. "
                 "The video transcript may be very long or your system resources may be constrained."
             ),
         }
     except Exception as exc:
-        logger.warning("Unexpected Unsloth error: %s", _scrub_secret(str(exc), resolved_key))
+        logger.warning("Unexpected Lemonade error: %s", _scrub_secret(str(exc), resolved_key))
         return {
             "success": False,
-            "error": _scrub_secret(f"Local Unsloth Unexpected Error: {str(exc)}", resolved_key),
+            "error": _scrub_secret(f"Local Lemonade Unexpected Error: {str(exc)}", resolved_key),
         }
 
 
-async def _stream_summary_with_unsloth(
+async def _stream_summary_with_lemonade(
     prompt: str,
-    model_name: str = UNSLOTH_DEFAULT_MODEL,
+    model_name: str = LEMONADE_DEFAULT_MODEL,
     images_b64: Optional[List[str]] = None,
     api_key_override: Optional[str] = None,
 ) -> AsyncIterator[Dict[str, Any]]:
-    """Stream tokens incrementally from local Unsloth Studio `/v1/chat/completions` SSE."""
-    raw_model = _strip_unsloth_prefix(model_name)
-    url = f"{_unsloth_api_base()}/chat/completions"
-    resolved_key = _unsloth_resolve_api_key(api_key_override)
-    headers = _unsloth_headers(resolved_key)
+    """Stream tokens incrementally from local Lemonade Server `/api/v1/chat/completions` SSE."""
+    raw_model = _strip_lemonade_prefix(model_name)
+    url = f"{_lemonade_api_base()}/chat/completions"
+    resolved_key = _lemonade_resolve_api_key(api_key_override)
+    headers = _lemonade_headers(resolved_key)
     payload: Dict[str, Any] = {
         "model": raw_model,
-        "messages": _build_unsloth_messages(prompt, images_b64),
+        "messages": _build_lemonade_messages(prompt, images_b64),
         "stream": True,
     }
 
@@ -794,8 +804,8 @@ async def _stream_summary_with_unsloth(
                 yield {
                     "type": "error",
                     "error": (
-                        f"Local Unsloth Authentication Error (HTTP {res.status_code}): "
-                        "Invalid or missing Unsloth Bearer token. Set UNSLOTH_STUDIO_AUTH_TOKEN in .env "
+                        f"Local Lemonade Authentication Error (HTTP {res.status_code}): "
+                        "Invalid or missing Lemonade API key. Set LEMONADE_API_KEY in .env "
                         "and click Refresh."
                     ),
                 }
@@ -805,14 +815,14 @@ async def _stream_summary_with_unsloth(
                 yield {
                     "type": "error",
                     "error": (
-                        f"Local Model Not Found: Model '{raw_model}' is not loaded in Unsloth Studio. "
-                        "Load the model in Unsloth Studio and click Refresh."
+                        f"Local Model Not Found: Model '{raw_model}' is not loaded in Lemonade Server. "
+                        "Load the model in Lemonade Server and click Refresh."
                     ),
                 }
                 return
 
             if res.status_code != 200 and images_b64:
-                fallback = await generate_summary_with_unsloth(
+                fallback = await generate_summary_with_lemonade(
                     prompt, raw_model, images_b64=None, api_key_override=resolved_key
                 )
                 if fallback.get("success"):
@@ -825,7 +835,7 @@ async def _stream_summary_with_unsloth(
                 else:
                     yield {
                         "type": "error",
-                        "error": fallback.get("error", "Unsloth error"),
+                        "error": fallback.get("error", "Lemonade error"),
                     }
                 return
 
@@ -834,7 +844,7 @@ async def _stream_summary_with_unsloth(
                 yield {
                     "type": "error",
                     "error": _scrub_secret(
-                        f"Local Unsloth Server Error (HTTP {res.status_code}): {body}",
+                        f"Local Lemonade Server Error (HTTP {res.status_code}): {body}",
                         resolved_key,
                     ),
                 }
@@ -867,13 +877,13 @@ async def _stream_summary_with_unsloth(
             yield {
                 "type": "done_llm",
                 "summary": final_text,
-                "model_used": f"Unsloth ({raw_model})",
+                "model_used": f"Lemonade ({raw_model})",
             }
         else:
             yield {
                 "type": "error",
                 "error": (
-                    f"Local Unsloth Model Error: Model '{raw_model}' completed the request "
+                    f"Local Lemonade Model Error: Model '{raw_model}' completed the request "
                     "but returned an empty response."
                 ),
             }
@@ -881,22 +891,22 @@ async def _stream_summary_with_unsloth(
         yield {
             "type": "error",
             "error": (
-                f"Local Unsloth Connection Error: Could not connect to Unsloth Studio at {UNSLOTH_HOST}. "
-                "Please verify that Unsloth Studio is running on your machine (e.g. run 'unsloth studio')."
+                f"Local Lemonade Connection Error: Could not connect to Lemonade Server at {LEMONADE_HOST}. "
+                "Please verify that Lemonade Server is running on your machine (e.g. run 'lemonade-server serve')."
             ),
         }
     except httpx.TimeoutException:
         yield {
             "type": "error",
             "error": (
-                f"Local Unsloth Timeout: Model '{raw_model}' took longer than 180 seconds to respond."
+                f"Local Lemonade Timeout: Model '{raw_model}' took longer than 180 seconds to respond."
             ),
         }
     except Exception as exc:
-        logger.warning("Unexpected Unsloth stream error: %s", _scrub_secret(str(exc), resolved_key))
+        logger.warning("Unexpected Lemonade stream error: %s", _scrub_secret(str(exc), resolved_key))
         yield {
             "type": "error",
-            "error": _scrub_secret(f"Local Unsloth Unexpected Error: {str(exc)}", resolved_key),
+            "error": _scrub_secret(f"Local Lemonade Unexpected Error: {str(exc)}", resolved_key),
         }
 
 
@@ -1518,7 +1528,7 @@ async def generate_youtube_summary(
     video_frames: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Generate structured summary using local Ollama (Gemma 4), local Unsloth Studio (Gemma 4),
+    Generate structured summary using local Ollama, local Lemonade Server,
     or Gemini API with top-level try/except.
     Adapts output language to user selection ('fr', 'en', or 'bi') and supports Song/Lyrics mode
     as well as multimodal visual video keyframes when no captions or spoken audio are present.
@@ -1534,8 +1544,8 @@ async def generate_youtube_summary(
             video_frames=video_frames,
         )
 
-        if _is_unsloth_model(model_name) or "unsloth" in model_choice.lower():
-            result = await generate_summary_with_unsloth(
+        if _is_lemonade_model(model_name) or "lemonade" in model_choice.lower():
+            result = await generate_summary_with_lemonade(
                 prompt,
                 model_name,
                 images_b64=video_frames,
@@ -1594,8 +1604,8 @@ async def stream_youtube_summary(
             video_frames=video_frames,
         )
 
-        if _is_unsloth_model(model_name) or "unsloth" in model_choice.lower():
-            async for event in _stream_summary_with_unsloth(
+        if _is_lemonade_model(model_name) or "lemonade" in model_choice.lower():
+            async for event in _stream_summary_with_lemonade(
                 prompt,
                 model_name,
                 images_b64=video_frames,

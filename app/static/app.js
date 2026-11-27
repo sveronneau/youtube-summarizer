@@ -12,11 +12,10 @@
         availableOllamaModels: [],
         ollamaLoadedFetched: false,
         ollamaOffline: false,
-        selectedUnslothVariant: '',
-        availableUnslothModels: [],
-        unslothLoadedFetched: false,
-        unslothOffline: false,
-        unslothAuthRequired: false,
+        selectedLemonadeVariant: '',
+        availableLemonadeModels: [],
+        lemonadeLoadedFetched: false,
+        lemonadeOffline: false,
         currentSourceMode: 'youtube', // 'youtube' or 'file'
         selectedFile: null,
         currentVideoObjectUrl: null,
@@ -80,8 +79,8 @@
             labelModelSelect: "Sélectionnez le modèle d'IA",
             tagLocalServer: "Modèle local",
             descGemma4: "Modèle local privé via Ollama.",
-            tagUnsloth: "Modèle local",
-            descUnsloth: "Modèle local privé via Unsloth Studio.",
+            tagLemonade: "Modèle local",
+            descLemonade: "Modèle local privé via Lemonade Server.",
             tagHydrogen: "Rapide • 1M",
             descHydrogen: "Vitesse élevée et raisonnement efficace (1M contexte).",
             tagNeon: "Équilibré • 1M",
@@ -96,13 +95,11 @@
             btnRefreshModels: "Actualiser",
             noteLocalServer: "Vérification des modèles chargés dans Ollama (/api/ps)...",
             noteOllamaEmpty: "Aucun modèle chargé en mémoire. Chargez un modèle dans Ollama (ex. `ollama run <modèle>`) puis cliquez sur Actualiser.",
-            labelUnslothVariant: "Modèle chargé Unsloth :",
-            optUnslothEmpty: "Aucun modèle actuellement chargé dans Unsloth",
-            optUnslothOffline: "Unsloth Studio hors ligne (http://127.0.0.1:8888)",
-            optUnslothAuth: "Jeton Unsloth requis (HTTP 401/403)",
-            noteUnslothServer: "Vérification des modèles chargés dans Unsloth (/v1/models)...",
-            noteUnslothEmpty: "Aucun modèle chargé en mémoire. Chargez un modèle dans Unsloth Studio puis cliquez sur Actualiser.",
-            noteUnslothAuth: "Authentification requise par Unsloth Studio. Définissez UNSLOTH_STUDIO_AUTH_TOKEN dans .env, puis cliquez sur Actualiser.",
+            labelLemonadeVariant: "Modèle chargé Lemonade :",
+            optLemonadeEmpty: "Aucun modèle actuellement chargé dans Lemonade",
+            optLemonadeOffline: "Lemonade Server hors ligne (http://127.0.0.1:13305)",
+            noteLemonadeServer: "Vérification des modèles chargés dans Lemonade (/api/v1/health)...",
+            noteLemonadeEmpty: "Aucun modèle chargé en mémoire. Chargez un modèle dans Lemonade Server puis cliquez sur Actualiser.",
             labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon (API Interactions) :",
             noteCarbonThinking: "Gemini 4 Carbon utilise le niveau Moyen par défaut. Vous pouvez ajuster le niveau de réflexion (Faible, Moyen, Élevé) via thinking_level dans l'API Interactions.",
             labelArgonThinking: "Niveau de réflexion Gemini 4 Argon (API Interactions) :",
@@ -162,8 +159,8 @@
             labelModelSelect: "Select AI Model",
             tagLocalServer: "Local Model",
             descGemma4: "Private local model via Ollama.",
-            tagUnsloth: "Local Model",
-            descUnsloth: "Private local model via Unsloth Studio.",
+            tagLemonade: "Local Model",
+            descLemonade: "Private local model via Lemonade Server.",
             tagHydrogen: "Fast • 1M",
             descHydrogen: "High-speed, cost-efficient reasoning (1M context).",
             tagNeon: "Balanced • 1M",
@@ -178,13 +175,11 @@
             btnRefreshModels: "Refresh",
             noteLocalServer: "Checking loaded models in Ollama (/api/ps)...",
             noteOllamaEmpty: "No models loaded in memory. Load a model in Ollama (e.g. `ollama run <model>`), then click Refresh.",
-            labelUnslothVariant: "Loaded Unsloth Model:",
-            optUnslothEmpty: "No models currently loaded in Unsloth",
-            optUnslothOffline: "Unsloth Studio offline (http://127.0.0.1:8888)",
-            optUnslothAuth: "Unsloth Bearer token required (HTTP 401/403)",
-            noteUnslothServer: "Checking loaded models in Unsloth (/v1/models)...",
-            noteUnslothEmpty: "No models loaded in memory. Load a model in Unsloth Studio, then click Refresh.",
-            noteUnslothAuth: "Unsloth Studio requires authentication. Set UNSLOTH_STUDIO_AUTH_TOKEN in .env, then click Refresh.",
+            labelLemonadeVariant: "Loaded Lemonade Model:",
+            optLemonadeEmpty: "No models currently loaded in Lemonade",
+            optLemonadeOffline: "Lemonade Server offline (http://127.0.0.1:13305)",
+            noteLemonadeServer: "Checking loaded models in Lemonade (/api/v1/health)...",
+            noteLemonadeEmpty: "No models loaded in memory. Load a model in Lemonade Server, then click Refresh.",
             labelCarbonThinking: "Gemini 4 Carbon Reasoning Depth (Interactions API):",
             noteCarbonThinking: "Gemini 4 Carbon uses Medium reasoning by default. You can adjust the reasoning depth (Low, Medium, High) via thinking_level in the Google Interactions API.",
             labelArgonThinking: "Gemini 4 Argon Reasoning Depth (Interactions API):",
@@ -244,8 +239,8 @@
             labelModelSelect: "Sélectionnez le modèle d'IA / Select AI Model",
             tagLocalServer: "Modèle local / Local Model",
             descGemma4: "Modèle local privé via Ollama / Private local model via Ollama.",
-            tagUnsloth: "Modèle local / Local Model",
-            descUnsloth: "Modèle local privé via Unsloth Studio / Private local model via Unsloth Studio.",
+            tagLemonade: "Modèle local / Local Model",
+            descLemonade: "Modèle local privé via Lemonade Server / Private local model via Lemonade Server.",
             tagHydrogen: "Rapide / Fast • 1M",
             descHydrogen: "Vitesse élevée &amp; raisonnement efficace (1M) / Fast &amp; efficient reasoning (1M).",
             tagNeon: "Équilibré / Balanced • 1M",
@@ -260,13 +255,11 @@
             btnRefreshModels: "Actualiser / Refresh",
             noteLocalServer: "Vérification des modèles chargés dans Ollama (/api/ps)...",
             noteOllamaEmpty: "Aucun modèle chargé en mémoire. Chargez un modèle dans Ollama puis Actualiser / Load a model in Ollama, then Refresh.",
-            labelUnslothVariant: "Modèle chargé Unsloth / Loaded Model:",
-            optUnslothEmpty: "Aucun modèle chargé dans Unsloth / No loaded models in Unsloth",
-            optUnslothOffline: "Unsloth hors ligne / Unsloth Studio offline (http://127.0.0.1:8888)",
-            optUnslothAuth: "Jeton Unsloth requis / Unsloth Bearer token required (HTTP 401/403)",
-            noteUnslothServer: "Vérification des modèles chargés dans Unsloth (/v1/models)...",
-            noteUnslothEmpty: "Aucun modèle chargé dans Unsloth / No loaded models in Unsloth. Load a model, then Refresh.",
-            noteUnslothAuth: "Jeton Bearer requis par Unsloth / Set UNSLOTH_STUDIO_AUTH_TOKEN in .env, then Refresh.",
+            labelLemonadeVariant: "Modèle chargé Lemonade / Loaded Model:",
+            optLemonadeEmpty: "Aucun modèle chargé dans Lemonade / No loaded models in Lemonade",
+            optLemonadeOffline: "Lemonade hors ligne / Lemonade Server offline (http://127.0.0.1:13305)",
+            noteLemonadeServer: "Vérification des modèles chargés dans Lemonade (/api/v1/health)...",
+            noteLemonadeEmpty: "Aucun modèle chargé dans Lemonade / No loaded models in Lemonade. Load a model, then Refresh.",
             labelCarbonThinking: "Niveau de réflexion Gemini 4 Carbon / Reasoning Depth (Interactions API):",
             noteCarbonThinking: "Gemini 4 Carbon utilise le niveau Moyen par défaut / Uses Medium reasoning by default (Low, Medium, High via thinking_level).",
             labelArgonThinking: "Niveau de réflexion Gemini 4 Argon / Reasoning Depth (Interactions API):",
@@ -391,44 +384,43 @@
         }
     }
 
-    function formatUnslothOptionLabel(m) {
+    function formatLemonadeOptionLabel(m) {
         let labelText = m.name;
-        if (m.owned_by && m.owned_by !== 'unsloth') {
-            labelText += ` (${m.owned_by})`;
+        const meta = [m.recipe, m.device].filter(Boolean);
+        if (meta.length > 0) {
+            labelText += ` (${meta.join(' • ')})`;
         }
         return labelText;
     }
 
-    function renderUnslothSelectOptions() {
-        const selectEl = document.getElementById('unsloth-model-select');
+    function renderLemonadeSelectOptions() {
+        const selectEl = document.getElementById('lemonade-model-select');
         if (!selectEl) return;
 
         const dict = translations[state.currentLang] || translations.bi;
-        if (state.availableUnslothModels.length === 0) {
+        if (state.availableLemonadeModels.length === 0) {
             const emptyOpt = document.createElement('option');
             emptyOpt.value = '';
             emptyOpt.disabled = true;
             emptyOpt.selected = true;
-            emptyOpt.textContent = state.unslothAuthRequired
-                ? dict.optUnslothAuth
-                : (state.unslothOffline ? dict.optUnslothOffline : dict.optUnslothEmpty);
+            emptyOpt.textContent = state.lemonadeOffline ? dict.optLemonadeOffline : dict.optLemonadeEmpty;
             selectEl.replaceChildren(emptyOpt);
             selectEl.disabled = true;
-            state.selectedUnslothVariant = '';
+            state.selectedLemonadeVariant = '';
             return;
         }
 
-        const currentVal = state.selectedUnslothVariant || selectEl.value;
+        const currentVal = state.selectedLemonadeVariant || selectEl.value;
         selectEl.disabled = false;
         let preferredFound = false;
 
-        const options = state.availableUnslothModels.map(m => {
+        const options = state.availableLemonadeModels.map(m => {
             const opt = document.createElement('option');
             opt.value = m.name;
-            opt.textContent = formatUnslothOptionLabel(m);
+            opt.textContent = formatLemonadeOptionLabel(m);
             if (m.name === currentVal) {
                 opt.selected = true;
-                state.selectedUnslothVariant = m.name;
+                state.selectedLemonadeVariant = m.name;
                 preferredFound = true;
             }
             return opt;
@@ -436,34 +428,36 @@
 
         selectEl.replaceChildren(...options);
 
-        if (!preferredFound && state.availableUnslothModels.length > 0) {
+        if (!preferredFound && state.availableLemonadeModels.length > 0) {
             selectEl.selectedIndex = 0;
-            state.selectedUnslothVariant = state.availableUnslothModels[0].name;
+            state.selectedLemonadeVariant = state.availableLemonadeModels[0].name;
         }
     }
 
-    function updateUnslothModelNote(modelName) {
-        const noteEl = document.getElementById('unsloth-model-note');
+    function updateLemonadeModelNote(modelName) {
+        const noteEl = document.getElementById('lemonade-model-note');
         if (!noteEl) return;
 
         const dict = translations[state.currentLang] || translations.bi;
-        const found = state.availableUnslothModels.find(m => m.name === modelName);
+        const found = state.availableLemonadeModels.find(m => m.name === modelName);
         const isEn = state.currentLang === 'en';
         const isFr = state.currentLang === 'fr';
 
         if (found) {
-            const prefix = isEn ? "Loaded in Unsloth: " : (isFr ? "Chargé dans Unsloth : " : "Chargé / Loaded in Unsloth: ");
+            const prefix = isEn ? "Loaded in Lemonade: " : (isFr ? "Chargé dans Lemonade : " : "Chargé / Loaded in Lemonade: ");
+            const unitLabel = isFr ? "Go" : "GB";
             let text = `${prefix}<strong>${escapeHtml(found.name)}</strong>`;
+            const meta = [found.recipe, found.device].filter(Boolean);
+            if (meta.length > 0) text += ` • ${escapeHtml(meta.join(' • '))}`;
+            if (found.size_gb) text += ` (${escapeHtml(found.size_gb)} ${unitLabel})`;
             if (found.context_length) text += ` • ${escapeHtml(found.context_length)} ctx`;
             noteEl.innerHTML = text;
-        } else if (!state.unslothLoadedFetched) {
-            noteEl.textContent = dict.noteUnslothServer;
-        } else if (state.unslothAuthRequired) {
-            noteEl.textContent = dict.noteUnslothAuth;
-        } else if (state.unslothOffline) {
-            noteEl.textContent = dict.optUnslothOffline;
+        } else if (!state.lemonadeLoadedFetched) {
+            noteEl.textContent = dict.noteLemonadeServer;
+        } else if (state.lemonadeOffline) {
+            noteEl.textContent = dict.optLemonadeOffline;
         } else {
-            noteEl.textContent = dict.noteUnslothEmpty;
+            noteEl.textContent = dict.noteLemonadeEmpty;
         }
     }
 
@@ -540,8 +534,8 @@
 
         renderOllamaSelectOptions();
         updateOllamaModelNote(state.selectedOllamaVariant);
-        renderUnslothSelectOptions();
-        updateUnslothModelNote(state.selectedUnslothVariant);
+        renderLemonadeSelectOptions();
+        updateLemonadeModelNote(state.selectedLemonadeVariant);
         updateThinkingContainer();
         syncTranscriptToggleText();
     }
@@ -577,35 +571,32 @@
         }
     }
 
-    async function loadUnslothModels(isManualRefresh = false) {
-        const refreshIcon = document.getElementById('refresh-unsloth-icon');
+    async function loadLemonadeModels(isManualRefresh = false) {
+        const refreshIcon = document.getElementById('refresh-lemonade-icon');
         if (refreshIcon && isManualRefresh) {
             refreshIcon.classList.add('fa-spin');
         }
 
         try {
             const fetchOpts = isManualRefresh ? {} : { priority: 'low' };
-            const res = await fetch('/api/unsloth/models', fetchOpts);
-            state.unslothLoadedFetched = true;
+            const res = await fetch('/api/lemonade/models', fetchOpts);
+            state.lemonadeLoadedFetched = true;
             if (res.ok) {
                 const data = await res.json();
-                state.unslothAuthRequired = Boolean(data.auth_required);
-                state.unslothOffline = !data.success && !data.auth_required;
-                state.availableUnslothModels = data.success && Array.isArray(data.models) ? data.models : [];
+                state.lemonadeOffline = !data.success;
+                state.availableLemonadeModels = data.success && Array.isArray(data.models) ? data.models : [];
             } else {
-                state.unslothAuthRequired = false;
-                state.unslothOffline = true;
-                state.availableUnslothModels = [];
+                state.lemonadeOffline = true;
+                state.availableLemonadeModels = [];
             }
         } catch (err) {
-            state.unslothLoadedFetched = true;
-            state.unslothAuthRequired = false;
-            state.unslothOffline = true;
-            state.availableUnslothModels = [];
-            console.warn("Could not load local Unsloth models:", err);
+            state.lemonadeLoadedFetched = true;
+            state.lemonadeOffline = true;
+            state.availableLemonadeModels = [];
+            console.warn("Could not load local Lemonade models:", err);
         } finally {
-            renderUnslothSelectOptions();
-            updateUnslothModelNote(state.selectedUnslothVariant);
+            renderLemonadeSelectOptions();
+            updateLemonadeModelNote(state.selectedLemonadeVariant);
             if (refreshIcon) {
                 refreshIcon.classList.remove('fa-spin');
             }
@@ -774,12 +765,12 @@
             ollamaVariantBox.classList.toggle('hidden', modelKey !== 'gemma4');
         }
 
-        const unslothVariantBox = document.getElementById('unsloth-variant-container');
-        if (unslothVariantBox) {
-            unslothVariantBox.classList.toggle('hidden', modelKey !== 'unsloth');
+        const lemonadeVariantBox = document.getElementById('lemonade-variant-container');
+        if (lemonadeVariantBox) {
+            lemonadeVariantBox.classList.toggle('hidden', modelKey !== 'lemonade');
         }
-        if (modelKey === 'unsloth' && state.availableUnslothModels.length === 0) {
-            loadUnslothModels();
+        if (modelKey === 'lemonade' && state.availableLemonadeModels.length === 0) {
+            loadLemonadeModels();
         }
 
         updateThinkingContainer();
@@ -890,8 +881,8 @@
                 displayLabel = `Gemini (gemini-4-argon • ${reasonPrefix}: ${thinkingLevel})`;
             } else if (modelUsedLabel === 'flash' || modelUsedLabel === 'gemini-3.8-flash') {
                 displayLabel = `Gemini (gemini-3.8-flash • ${reasonPrefix}: ${thinkingLevel})`;
-            } else if (modelUsedLabel.startsWith('unsloth:')) {
-                displayLabel = `Unsloth (${modelUsedLabel.slice('unsloth:'.length)})`;
+            } else if (modelUsedLabel.startsWith('lemonade:')) {
+                displayLabel = `Lemonade (${modelUsedLabel.slice('lemonade:'.length)})`;
             }
             modelBadge.textContent = displayLabel;
         }
@@ -948,8 +939,8 @@
             errTitle = state.currentLang === 'en'
                 ? "Offline Speech Model Not Cached (Whisper)"
                 : "Modèle Vocal Hors-Ligne Non Mis en Cache (Whisper)";
-        } else if (errMsg.includes("Unsloth")) {
-            errTitle = state.currentLang === 'en' ? "Local Model Error (Unsloth)" : "Erreur Modèle Local (Unsloth)";
+        } else if (errMsg.includes("Lemonade")) {
+            errTitle = state.currentLang === 'en' ? "Local Model Error (Lemonade)" : "Erreur Modèle Local (Lemonade)";
         } else if (errMsg.includes("Ollama") || errMsg.includes("Local")) {
             errTitle = state.currentLang === 'en' ? "Local Model Error (Ollama)" : "Erreur Modèle Local (Ollama)";
         } else if (errMsg.includes("Gemini") || errMsg.includes("Remote")) {
@@ -1063,27 +1054,23 @@
             );
             return;
         }
-        if (state.selectedModel === 'unsloth' && !state.selectedUnslothVariant) {
-            const unslothSelect = document.getElementById('unsloth-model-select');
-            if (unslothSelect) unslothSelect.focus();
+        if (state.selectedModel === 'lemonade' && !state.selectedLemonadeVariant) {
+            const lemonadeSelect = document.getElementById('lemonade-model-select');
+            if (lemonadeSelect) lemonadeSelect.focus();
             showError(
                 state.currentLang === 'en'
-                    ? (state.unslothAuthRequired
-                        ? "Unsloth Studio requires a Bearer token. Set UNSLOTH_STUDIO_AUTH_TOKEN in .env and click Refresh."
-                        : "No loaded models found in Unsloth Studio. Load a model in Unsloth Studio and click Refresh.")
-                    : (state.unslothAuthRequired
-                        ? "Unsloth Studio requiert un jeton Bearer. Définissez UNSLOTH_STUDIO_AUTH_TOKEN dans .env et cliquez sur Actualiser."
-                        : "Aucun modèle chargé détecté dans Unsloth Studio. Chargez un modèle dans Unsloth Studio puis cliquez sur Actualiser.")
+                    ? "No loaded models found in Lemonade Server. Load a model in Lemonade Server and click Refresh."
+                    : "Aucun modèle chargé détecté dans Lemonade Server. Chargez un modèle dans Lemonade Server puis cliquez sur Actualiser."
             );
             return;
         }
 
         const effectiveModel = (state.selectedModel === 'gemma4')
             ? state.selectedOllamaVariant
-            : (state.selectedModel === 'unsloth')
-                ? `unsloth:${state.selectedUnslothVariant}`
+            : (state.selectedModel === 'lemonade')
+                ? `lemonade:${state.selectedLemonadeVariant}`
                 : state.selectedModel;
-        const effectiveApiKey = (state.selectedModel === 'unsloth' || state.selectedModel === 'gemma4')
+        const effectiveApiKey = (state.selectedModel === 'lemonade' || state.selectedModel === 'gemma4')
             ? null
             : (apiKey || null);
         const thinkingSelect = document.getElementById('argon-thinking-select');
@@ -1329,7 +1316,7 @@
         }
         setLanguage(savedLang);
         loadOllamaModels();
-        loadUnslothModels();
+        loadLemonadeModels();
 
         // Language switcher buttons
         document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
@@ -1488,18 +1475,18 @@
             refreshBtn.addEventListener('click', () => loadOllamaModels(true));
         }
 
-        // Unsloth variant select, bearer token refresh & manual refresh
-        const unslothSelect = document.getElementById('unsloth-model-select');
-        if (unslothSelect) {
-            unslothSelect.addEventListener('change', () => {
-                state.selectedUnslothVariant = unslothSelect.value;
-                updateUnslothModelNote(unslothSelect.value);
+        // Lemonade variant select & manual refresh
+        const lemonadeSelect = document.getElementById('lemonade-model-select');
+        if (lemonadeSelect) {
+            lemonadeSelect.addEventListener('change', () => {
+                state.selectedLemonadeVariant = lemonadeSelect.value;
+                updateLemonadeModelNote(lemonadeSelect.value);
             });
         }
 
-        const refreshUnslothBtn = document.getElementById('btn-refresh-unsloth-models');
-        if (refreshUnslothBtn) {
-            refreshUnslothBtn.addEventListener('click', () => loadUnslothModels(true));
+        const refreshLemonadeBtn = document.getElementById('btn-refresh-lemonade-models');
+        if (refreshLemonadeBtn) {
+            refreshLemonadeBtn.addEventListener('click', () => loadLemonadeModels(true));
         }
 
         // Action & Cancel buttons

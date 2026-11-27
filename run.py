@@ -95,7 +95,7 @@ if __name__ == "__main__":
         f" > Whisper ASR:   "
         f"{'✅ Cached offline (' + whisper_size + ')' if whisper_ready else '⚠️  Not cached yet — run `python run.py --warmup` while online'}"
     )
-    print(" Models: 🦙 Ollama (Local) | 🦥 Unsloth (Local) | ⚛️ Gemini 4 Hydrogen | ✨ Gemini 4 Neon | 🧠 Gemini 4 Argon | 💎 Gemini 4 Carbon")
+    print(" Models: 🦙 Ollama (Local) | 🍋 Lemonade (Local) | ⚛️ Gemini 4 Hydrogen | ✨ Gemini 4 Neon | 🧠 Gemini 4 Argon | 💎 Gemini 4 Carbon")
     print("=" * 64)
 
     uvicorn.run(

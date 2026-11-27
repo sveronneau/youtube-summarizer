@@ -26,7 +26,7 @@
     <!-- Locally vendored Marked.js & DOMPurify for 100% offline Ollama Markdown rendering -->
     <script src="/static/vendor/marked.min.js?v=15.0.7"></script>
     <script src="/static/vendor/purify.min.js?v=3.2.4"></script>
-    <link rel="stylesheet" href="/static/style.css?v=3.2">
+    <link rel="stylesheet" href="/static/style.css?v=3.3">
 </head>
 
 <body>
@@ -227,16 +227,16 @@
                                 <p class="model-desc" data-i18n="descGemma4">Modèle local privé via Ollama / Private local model via Ollama.</p>
                             </label>
 
-                            <label for="model-unsloth" class="model-card" id="card-unsloth">
-                                <input type="radio" id="model-unsloth" name="model" value="unsloth" class="visually-hidden">
+                            <label for="model-lemonade" class="model-card" id="card-lemonade">
+                                <input type="radio" id="model-lemonade" name="model" value="lemonade" class="visually-hidden">
                                 <div class="model-card-header">
-                                    <span class="model-icon" aria-hidden="true">🦥</span>
+                                    <span class="model-icon" aria-hidden="true">🍋</span>
                                     <div>
-                                        <span class="model-title">Unsloth</span>
-                                        <span class="model-tag tag-unsloth" data-i18n="tagUnsloth">Modèle local / Local Model</span>
+                                        <span class="model-title">Lemonade</span>
+                                        <span class="model-tag tag-lemonade" data-i18n="tagLemonade">Modèle local / Local Model</span>
                                     </div>
                                 </div>
-                                <p class="model-desc" data-i18n="descUnsloth">Modèle local privé via Unsloth Studio / Private local model via Unsloth Studio.</p>
+                                <p class="model-desc" data-i18n="descLemonade">Modèle local privé via Lemonade Server / Private local model via Lemonade Server.</p>
                             </label>
 
                             <label for="model-hydrogen" class="model-card" id="card-hydrogen">
@@ -309,25 +309,25 @@
                             <small class="variant-note" id="ollama-model-note" role="status" aria-live="polite" data-i18n="noteLocalServer">Vérification des modèles chargés dans Ollama (/api/ps)...</small>
                         </div>
 
-                        <!-- Dynamic Local Unsloth Studio Model Variant Selector -->
-                        <div id="unsloth-variant-container" class="ollama-variant-box unsloth-variant-box hidden">
+                        <!-- Dynamic Local Lemonade Server Model Variant Selector -->
+                        <div id="lemonade-variant-container" class="ollama-variant-box lemonade-variant-box hidden">
                             <div class="variant-header">
-                                <label for="unsloth-model-select" class="variant-label">
-                                    <i class="fa-solid fa-bolt icon-chip icon-chip-unsloth" aria-hidden="true"></i>
-                                    <span data-i18n="labelUnslothVariant">Modèle chargé Unsloth / Loaded Model:</span>
+                                <label for="lemonade-model-select" class="variant-label">
+                                    <i class="fa-solid fa-lemon icon-chip icon-chip-lemonade" aria-hidden="true"></i>
+                                    <span data-i18n="labelLemonadeVariant">Modèle chargé Lemonade / Loaded Model:</span>
                                 </label>
-                                <button type="button" class="btn-refresh-models btn-refresh-unsloth" id="btn-refresh-unsloth-models">
-                                    <i class="fa-solid fa-arrows-rotate" id="refresh-unsloth-icon" aria-hidden="true"></i>
+                                <button type="button" class="btn-refresh-models btn-refresh-lemonade" id="btn-refresh-lemonade-models">
+                                    <i class="fa-solid fa-arrows-rotate" id="refresh-lemonade-icon" aria-hidden="true"></i>
                                     <span data-i18n="btnRefreshModels">Actualiser / Refresh</span>
                                 </button>
                             </div>
                             <div class="variant-select-wrapper">
-                                <select id="unsloth-model-select" name="unsloth_variant" class="form-control variant-select unsloth-select"
-                                    aria-describedby="unsloth-model-note" disabled>
-                                    <option value="" data-i18n="optUnslothEmpty" disabled selected>Aucun modèle chargé dans Unsloth / No loaded models in Unsloth</option>
+                                <select id="lemonade-model-select" name="lemonade_variant" class="form-control variant-select lemonade-select"
+                                    aria-describedby="lemonade-model-note" disabled>
+                                    <option value="" data-i18n="optLemonadeEmpty" disabled selected>Aucun modèle chargé dans Lemonade / No loaded models in Lemonade</option>
                                 </select>
                             </div>
-                            <small class="variant-note unsloth-note" id="unsloth-model-note" role="status" aria-live="polite" data-i18n="noteUnslothServer">Vérification des modèles chargés dans Unsloth (/v1/models)...</small>
+                            <small class="variant-note lemonade-note" id="lemonade-model-note" role="status" aria-live="polite" data-i18n="noteLemonadeServer">Vérification des modèles chargés dans Lemonade (/api/v1/health)...</small>
                         </div>
 
                         <!-- Gemini 4 Thinking Level Selector (Interactions API: Hydrogen, Neon, Argon & Carbon) -->
@@ -487,7 +487,7 @@
 
     </div>
 
-    <script src="/static/app.js?v=3.3"></script>
+    <script src="/static/app.js?v=3.4"></script>
 </body>
 
 </html>

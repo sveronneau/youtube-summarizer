@@ -20,8 +20,8 @@ from pydantic import BaseModel, Field
 from app.llm_service import (
     close_llm_client,
     generate_youtube_summary,
+    get_lemonade_models,
     get_ollama_models,
-    get_unsloth_models,
     stream_youtube_summary,
 )
 from app.transcription_service import (
@@ -65,7 +65,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Video Summarizer • GDG Ottawa — Learn, Build & Jingle",
     description=(
-        "Summarize YouTube videos & local media files using Ollama Gemma 4, Unsloth Studio Gemma 4 & Gemini 4 models "
+        "Summarize YouTube videos & local media files using Ollama, Lemonade Server & Gemini 4 models "
         "- GDG Ottawa Festive Google Codelab & Holiday Celebration (Dec 15, 2026)"
     ),
     version="2.2.0",
@@ -103,7 +103,7 @@ class SummarizeRequest(BaseModel):
         default="gemma4",
         max_length=128,
         description=(
-            "Choice of model: 'gemma4' (Ollama Local), 'unsloth:<model_id>' (Unsloth Studio Local), "
+            "Choice of model: 'gemma4' (Ollama Local), 'lemonade:<model_id>' (Lemonade Server Local), "
             "'hydrogen' (Gemini 4 Hydrogen), 'neon' (Gemini 4 Neon), 'argon' (Gemini 4 Argon), or 'carbon' (Gemini 4 Carbon)"
         ),
     )
@@ -182,10 +182,10 @@ async def list_ollama_models() -> Dict[str, Any]:
     return await get_ollama_models()
 
 
-@app.get("/api/unsloth/models")
-async def list_unsloth_models() -> Dict[str, Any]:
-    """List models currently loaded in memory on the local Unsloth Studio server."""
-    return await get_unsloth_models()
+@app.get("/api/lemonade/models")
+async def list_lemonade_models() -> Dict[str, Any]:
+    """List models currently loaded in memory on the local Lemonade Server."""
+    return await get_lemonade_models()
 
 
 @app.post("/api/video-info")
