@@ -623,7 +623,7 @@ flowchart LR
 |---|---|
 | **Codelab** | <https://codelabs.developers.google.com/devsite/codelabs/build-youtube-summarizer> |
 | **Antigravity** | <https://antigravity.google> |
-| **Gemma 4 · Ollama** | <https://ollama.com/library/gemma4> |
+| **Gemma 4 · Ollama / Lemonade** | <https://ollama.com/library/gemma4> · <https://lemonade-server.ai/models.html> |
 | **AI Studio** | <https://aistudio.google.com> |
 | **Gemini Notebook** | <https://notebook.google> |
 | **Code · GitHub** | <https://github.com/sveronneau/youtube-summarizer> |
