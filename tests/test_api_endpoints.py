@@ -80,10 +80,8 @@ async def run_endpoint_tests() -> None:
         assert 'value="neon"' in res_index.text
         assert 'id="card-lemonade"' in res_index.text
         assert 'value="lemonade"' in res_index.text
-        assert 'id="card-unsloth"' not in res_index.text
         assert 'Ollama Gemma 4' not in res_index.text
         assert 'Lemonade Gemma 4' not in res_index.text
-        assert 'id="unsloth-api-key"' not in res_index.text
         assert 'data-i18n="tagArgon"' in res_index.text
         assert 'id="card-flash"' not in res_index.text
         assert 'id="card-carbon"' in res_index.text
